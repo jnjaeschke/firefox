@@ -574,7 +574,139 @@ void Navigation::Navigate(JSContext* aCx, const nsAString& aUrl,
 // https://html.spec.whatwg.org/#performing-a-navigation-api-traversal
 void Navigation::PerformNavigationTraversal(JSContext* aCx, const nsID& aKey,
                                             const NavigationOptions& aOptions,
-                                            NavigationResult& aResult) {}
+                                            NavigationResult& aResult) {
+  // 1. Let document be navigation's relevant global object's associated
+  //    Document.
+  const Document* document = GetAssociatedDocument();
+
+  // 2. If document is not fully active, then return an early error result for
+  //    an "InvalidStateError" DOMException.
+  if (!CheckIfDocumentIsFullyActiveAndMaybeSetEarlyErrorResult(aCx, document,
+                                                               aResult)) {
+    return;
+  }
+
+  // 3. If document's unload counter is greater than 0, then return an early
+  //    error result for an "InvalidStateError" DOMException.
+  if (!CheckDocumentUnloadCounterAndMaybeSetEarlyErrorResult(aCx, document,
+                                                             aResult)) {
+    return;
+  }
+
+  // 4. Let current be the current entry of navigation.
+  RefPtr<NavigationHistoryEntry> current = GetCurrentEntry();
+  if (!current) {
+    ErrorResult rv;
+    rv.ThrowInvalidStateError("No current navigation history entry");
+    SetEarlyErrorResult(aCx, aResult, std::move(rv));
+    return;
+  }
+
+  // 5. If key equals current's session history entry's navigation API key, then
+  //    return «[ "committed" → a promise resolved with current, "finished" → a
+  //    promise resolved with current ]».
+  RefPtr global = GetOwnerGlobal();
+  if (!global) {
+    return;
+  }
+
+  if (current->Key() == aKey) {
+    aResult.mCommitted.Reset();
+    aResult.mCommitted.Construct(Promise::CreateInfallible(global));
+    aResult.mCommitted.Value()->MaybeResolve(current);
+    aResult.mFinished.Reset();
+    aResult.mFinished.Construct(Promise::CreateInfallible(global));
+    aResult.mFinished.Value()->MaybeResolve(current);
+    return;
+  }
+
+  // 6. If navigation's upcoming traverse API method trackers[key] exists, then
+  //    return a navigation API method tracker-derived result for navigation's
+  //    upcoming traverse API method trackers[key].
+  if (auto maybeTracker = mUpcomingTraverseAPIMethodTrackers.MaybeGet(aKey)) {
+    (*maybeTracker)->CreateResult(aResult);
+    return;
+  }
+
+  // 7. Let info be options["info"], if it exists; otherwise, undefined.
+  JS::Rooted<JS::Value> info(aCx, aOptions.mInfo);
+
+  // 8. Let apiMethodTracker be the result of adding an upcoming traverse API
+  //    method tracker for navigation given key and info.
+  RefPtr apiMethodTracker = AddUpcomingTraverseAPIMethodTracker(aKey, info);
+
+  // 9. Let navigable be document's node navigable.
+  RefPtr<BrowsingContext> navigable = document->GetBrowsingContext();
+
+  // 10. Let traversable be navigable's traversable navigable.
+  RefPtr<BrowsingContext> traversable = navigable->Top();
+  // 11. Let sourceSnapshotParams be the result of snapshotting source snapshot
+  //     params given document.
+
+  // 12. Append the following session history traversal steps to traversable:
+
+  // 12.1 Let navigableSHEs be the result of getting session history entries
+  //      given navigable.
+
+  // 12.2 Let targetSHE be the session history entry in navigableSHEs whose
+  //      navigation API key is key. If no such entry exists, then:
+  Maybe<uint64_t> targetSHEIndex = [this, &aKey]() -> Maybe<uint64_t> {
+    for (uint64_t index = 0; index < mEntries.Length(); ++index) {
+      if (mEntries[index]->Key() == aKey) {
+        return Some(index);
+      }
+    }
+    return Nothing();
+  }();
+  if (!targetSHEIndex) {
+    // 12.2.1 Queue a global task on the navigation and traversal task source
+    //        given navigation's relevant global object to reject the finished
+    //        promise for apiMethodTracker with an "InvalidStateError"
+    //        DOMException.
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("RejectFinishedPromise", [&aResult, this]() {
+          aResult.mFinished.Reset();
+          aResult.mFinished.Construct(
+              Promise::CreateInfallible(GetOwnerGlobal()));
+          aResult.mFinished.Value()->MaybeRejectWithInvalidStateError(
+              "No such entry with key found.");
+        }));
+    // 12.2.2 Abort these steps.
+    return;
+  }
+
+  // 12.3 If targetSHE is navigable's active session history entry, then abort
+  // these steps.
+  if (*targetSHEIndex != *mCurrentEntryIndex) {
+    MOZ_LOG_FMT(gNavigationLog, LogLevel::Debug,
+                "Navigating from session history entry with key = {} at index "
+                "= {} to entry with key = {} at index = {}",
+                current->Key().ToString().get(), *mCurrentEntryIndex,
+                aKey.ToString().get(), *targetSHEIndex);
+    int delta = int(*targetSHEIndex) - int(*mCurrentEntryIndex);
+    auto* childSHistory = traversable->GetChildSessionHistory();
+    childSHistory->AsyncGo(delta, /*aRequireUserInteraction=*/false,
+                           /*aUserActivation=*/false);
+    // 12.4 Let result be the result of applying the traverse history step given
+    //      by targetSHE's step to traversable, given sourceSnapshotParams,
+    //      navigable, and "none".
+
+    // 12.5 If result is "canceled-by-beforeunload", then queue a global task on
+    //      the navigation and traversal task source given navigation's relevant
+    //      global object to reject the finished promise for apiMethodTracker
+    //      with a new "AbortError" DOMException created in navigation's
+    //      relevant realm.
+
+    // 12.6 If result is "initiator-disallowed", then queue a global task on the
+    //      navigation and traversal task source given navigation's relevant
+    //      global object to reject the finished promise for apiMethodTracker
+    //      with a new "SecurityError" DOMException created in navigation's
+    //      relevant realm.
+  }
+  // 13. Return a navigation API method tracker-derived result for
+  //     apiMethodTracker.
+  apiMethodTracker->CreateResult(aResult);
+}
 
 // https://html.spec.whatwg.org/#dom-navigation-reload
 void Navigation::Reload(JSContext* aCx, const NavigationReloadOptions& aOptions,

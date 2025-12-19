@@ -4717,6 +4717,11 @@
   value: true
   mirror: always
 
+- name: dom.select.customizable_select.enabled
+  type: bool
+  value: false
+  mirror: always
+
 - name: dom.send_after_paint_to_content
   type: bool
   value: false

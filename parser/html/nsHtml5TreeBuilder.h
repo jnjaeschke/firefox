@@ -229,31 +229,27 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
 
   static const int32_t IN_COLUMN_GROUP = 9;
 
-  static const int32_t IN_SELECT_IN_TABLE = 10;
+  static const int32_t AFTER_BODY = 10;
 
-  static const int32_t IN_SELECT = 11;
+  static const int32_t IN_FRAMESET = 11;
 
-  static const int32_t AFTER_BODY = 12;
+  static const int32_t AFTER_FRAMESET = 12;
 
-  static const int32_t IN_FRAMESET = 13;
+  static const int32_t INITIAL = 13;
 
-  static const int32_t AFTER_FRAMESET = 14;
+  static const int32_t BEFORE_HTML = 14;
 
-  static const int32_t INITIAL = 15;
+  static const int32_t BEFORE_HEAD = 15;
 
-  static const int32_t BEFORE_HTML = 16;
+  static const int32_t AFTER_HEAD = 16;
 
-  static const int32_t BEFORE_HEAD = 17;
+  static const int32_t AFTER_AFTER_BODY = 17;
 
-  static const int32_t AFTER_HEAD = 18;
+  static const int32_t AFTER_AFTER_FRAMESET = 18;
 
-  static const int32_t AFTER_AFTER_BODY = 19;
+  static const int32_t TEXT = 19;
 
-  static const int32_t AFTER_AFTER_FRAMESET = 20;
-
-  static const int32_t TEXT = 21;
-
-  static const int32_t IN_TEMPLATE = 22;
+  static const int32_t IN_TEMPLATE = 20;
 
   static const int32_t CHARSET_INITIAL = 0;
 
@@ -409,6 +405,12 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   inline bool isCurrent(nsAtom* name) {
     return stack[currentPtr]->ns == kNameSpaceID_XHTML &&
            name == stack[currentPtr]->name;
+  }
+
+  inline bool isCurrentSelectOrOption() {
+    return stack[currentPtr]->ns == kNameSpaceID_XHTML &&
+           (nsGkAtoms::select == stack[currentPtr]->name ||
+            nsGkAtoms::option == stack[currentPtr]->name);
   }
 
   void removeFromStack(int32_t pos);

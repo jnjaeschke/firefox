@@ -342,6 +342,9 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   }
   void GetAutofillState(nsAString& aState) { GetFormAutofillState(aState); }
 
+  void UpdateSelectedContent();
+  void ClearNonPrimarySelectedContents();
+
  protected:
   virtual ~HTMLSelectElement() = default;
 
@@ -476,6 +479,11 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   void UpdateSelectedOptions();
 
   void SetUserInteracted(bool) final;
+
+  HTMLSelectedContentElement* GetEnabledSelectedContent();
+
+  void CloneOptionIntoSelectedContent(HTMLOptionElement* aOption,
+                                      HTMLSelectedContentElement* aTarget);
 
   /** The options[] array */
   RefPtr<HTMLOptionsCollection> mOptions;

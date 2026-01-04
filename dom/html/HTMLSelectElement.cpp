@@ -709,6 +709,14 @@ void HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex, bool aNotify) {
   }
 
   OnSelectionChanged();
+
+  // Update selectedcontent when selection changes programmatically.
+  // Spec: https://html.spec.whatwg.org/#the-select-element
+  // This corresponds to "update a select's selectedcontent" being called from
+  // the selectedIndex setter (https://html.spec.whatwg.org/#dom-select-selectedindex)
+  if (aNotify && StaticPrefs::dom_select_customizable_select_enabled()) {
+    UpdateSelectedContent();
+  }
 }
 
 bool HTMLSelectElement::IsOptionSelectedByIndex(int32_t aIndex) const {
@@ -1424,6 +1432,13 @@ HTMLSelectElement::Reset() {
 
   OnSelectionChanged();
   SetUserInteracted(false);
+
+  // Update selectedcontent to reflect the reset selection state.
+  // The select element's selection has been reset, so selectedcontent must be
+  // updated to match. This is part of the overall selection synchronization.
+  if (StaticPrefs::dom_select_customizable_select_enabled()) {
+    UpdateSelectedContent();
+  }
 
   // Let the frame know we were reset
   //

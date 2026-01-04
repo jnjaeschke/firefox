@@ -26,4 +26,11 @@ JSObject* HTMLSelectedContentElement::WrapNode(
   return HTMLSelectedContentElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
+// https://html.spec.whatwg.org/#clear-a-selectedcontent
+void HTMLSelectedContentElement::ClearContent() {
+  // Step 1: Replace all with null within selectedcontent
+  // https://dom.spec.whatwg.org/#concept-node-replace-all
+  ReplaceChildren(nullptr, IgnoreErrors());
+}
+
 }  // namespace mozilla::dom

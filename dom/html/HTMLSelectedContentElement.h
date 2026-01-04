@@ -20,6 +20,8 @@ class HTMLSelectedContentElement final : public nsGenericHTMLElement {
 
   nsresult Clone(class NodeInfo* aNodeInfo, nsINode** aResult) const override;
 
+  void ClearContent();
+
  protected:
   virtual ~HTMLSelectedContentElement();
 

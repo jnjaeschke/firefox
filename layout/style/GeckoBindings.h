@@ -148,6 +148,7 @@ const mozilla::PreferenceSheet::Prefs* Gecko_GetPrefSheetPrefs(
 
 bool Gecko_IsTableBorderNonzero(const mozilla::dom::Element* element);
 bool Gecko_IsSelectListBox(const mozilla::dom::Element* element);
+bool Gecko_IsCustomizableSelect(const mozilla::dom::Element* element);
 bool Gecko_IsButtonInSelect(const mozilla::dom::Element* element);
 bool Gecko_HasActiveViewTransitionTypes(
     const mozilla::dom::Document*, const nsTArray<mozilla::StyleCustomIdent>*);

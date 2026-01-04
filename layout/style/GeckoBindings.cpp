@@ -873,6 +873,22 @@ bool Gecko_IsSelectListBox(const Element* aElement) {
   return select && !select->IsCombobox();
 }
 
+bool Gecko_IsCustomizableSelect(const Element* aElement) {
+  if (!StaticPrefs::dom_select_customizable_select_enabled()) {
+    return false;
+  }
+  const auto* select = HTMLSelectElement::FromNode(aElement);
+  if (!select) {
+    return false;
+  }
+  nsIFrame* frame = aElement->GetPrimaryFrame();
+  if (!frame) {
+    return false;
+  }
+  return frame->StyleDisplay()->EffectiveAppearance() ==
+         StyleAppearance::BaseSelect;
+}
+
 bool Gecko_IsButtonInSelect(const Element* aElement) {
   const auto* button = HTMLButtonElement::FromNode(aElement);
   return button && button->IsFirstChildOfSelectElement();

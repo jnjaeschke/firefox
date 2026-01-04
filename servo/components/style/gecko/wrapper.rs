@@ -2178,6 +2178,9 @@ impl<'le> ::selectors::Element for GeckoElement<'le> {
             NonTSPseudoClass::MozSelectListBox => unsafe {
                 bindings::Gecko_IsSelectListBox(self.0)
             },
+            NonTSPseudoClass::MozCustomizableSelect => unsafe {
+                bindings::Gecko_IsCustomizableSelect(self.0)
+            },
             NonTSPseudoClass::MozIsHTML => self.as_node().owner_doc().is_html_document(),
             NonTSPseudoClass::MozLocaleDir(..) | NonTSPseudoClass::MozWindowInactive => {
                 let state_bit = pseudo_class.document_state_flag();

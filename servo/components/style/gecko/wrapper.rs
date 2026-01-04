@@ -2050,7 +2050,6 @@ impl<'le> ::selectors::Element for GeckoElement<'le> {
             | NonTSPseudoClass::Defined
             | NonTSPseudoClass::Focus
             | NonTSPseudoClass::Enabled
-            | NonTSPseudoClass::Disabled
             | NonTSPseudoClass::Checked
             | NonTSPseudoClass::Fullscreen
             | NonTSPseudoClass::Indeterminate
@@ -2073,7 +2072,6 @@ impl<'le> ::selectors::Element for GeckoElement<'le> {
             | NonTSPseudoClass::MozMathIncrementScriptLevel
             | NonTSPseudoClass::InRange
             | NonTSPseudoClass::OutOfRange
-            | NonTSPseudoClass::Default
             | NonTSPseudoClass::UserValid
             | NonTSPseudoClass::UserInvalid
             | NonTSPseudoClass::MozMeterOptimum
@@ -2094,6 +2092,26 @@ impl<'le> ::selectors::Element for GeckoElement<'le> {
             | NonTSPseudoClass::ActiveViewTransition
             | NonTSPseudoClass::MozValueEmpty
             | NonTSPseudoClass::MozSuppressForPrintSelection => {
+                self.state().intersects(pseudo_class.state_flag())
+            },
+            NonTSPseudoClass::Default => {
+                // https://html.spec.whatwg.org/#the-button-element
+                // "If a button element is the first child which is an element of a
+                // select element, then it is inert."
+                // Inert buttons should not match :default.
+                if unsafe { bindings::Gecko_IsButtonInSelect(self.0) } {
+                    return false;
+                }
+                self.state().intersects(pseudo_class.state_flag())
+            },
+            NonTSPseudoClass::Disabled => {
+                // https://html.spec.whatwg.org/#the-button-element
+                // "If a button element is the first child which is an element of a
+                // select element, then it is inert."
+                // Inert buttons should not inherit disabled state from the select.
+                if unsafe { bindings::Gecko_IsButtonInSelect(self.0) } {
+                    return false;
+                }
                 self.state().intersects(pseudo_class.state_flag())
             },
             NonTSPseudoClass::Dir(ref dir) => self.state().intersects(dir.element_state()),

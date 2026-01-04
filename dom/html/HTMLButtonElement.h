@@ -144,6 +144,8 @@ class HTMLButtonElement final : public nsGenericHTMLFormControlElementWithState,
     SetHTMLAttr(nsGkAtoms::command, aValue);
   }
 
+  bool IsFirstChildOfSelectElement() const;
+
  protected:
   virtual ~HTMLButtonElement();
 

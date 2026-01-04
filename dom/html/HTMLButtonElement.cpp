@@ -21,6 +21,7 @@
 #include "mozilla/dom/FormData.h"
 #include "mozilla/dom/HTMLButtonElementBinding.h"
 #include "mozilla/dom/HTMLFormElement.h"
+#include "mozilla/dom/HTMLSelectElement.h"
 #include "nsAttrValueInlines.h"
 #include "nsAttrValueOrString.h"
 #include "nsError.h"
@@ -163,6 +164,16 @@ int32_t HTMLButtonElement::TabIndexDefault() { return 0; }
 bool HTMLButtonElement::IsHTMLFocusable(IsFocusableFlags aFlags,
                                         bool* aIsFocusable,
                                         int32_t* aTabIndex) {
+  // https://github.com/whatwg/html/pull/10548
+  // https://html.spec.whatwg.org/#the-button-element
+  // "If a button element is the first child which is an element of a select
+  // element, then it is inert."
+  if (IsFirstChildOfSelectElement()) {
+    *aIsFocusable = false;
+    *aTabIndex = -1;
+    return true;
+  }
+
   if (nsGenericHTMLFormControlElementWithState::IsHTMLFocusable(
           aFlags, aIsFocusable, aTabIndex)) {
     return true;
@@ -625,6 +636,25 @@ void HTMLButtonElement::SetCommandForElement(Element* aElement) {
 JSObject* HTMLButtonElement::WrapNode(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
   return HTMLButtonElement_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+bool HTMLButtonElement::IsFirstChildOfSelectElement() const {
+  if (!StaticPrefs::dom_select_customizable_select_enabled()) {
+    return false;
+  }
+
+  nsIContent* parent = GetParent();
+  if (!parent) {
+    return false;
+  }
+
+  auto* select = HTMLSelectElement::FromNode(parent);
+  if (!select) {
+    return false;
+  }
+
+  nsIContent* firstElementChild = parent->GetFirstElementChild();
+  return firstElementChild == this;
 }
 
 }  // namespace mozilla::dom

@@ -46,6 +46,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/HTMLBodyElement.h"
+#include "mozilla/dom/HTMLButtonElement.h"
 #include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/HTMLSlotElement.h"
@@ -870,6 +871,11 @@ bool Gecko_IsTableBorderNonzero(const Element* aElement) {
 bool Gecko_IsSelectListBox(const Element* aElement) {
   const auto* select = HTMLSelectElement::FromNode(aElement);
   return select && !select->IsCombobox();
+}
+
+bool Gecko_IsButtonInSelect(const Element* aElement) {
+  const auto* button = HTMLButtonElement::FromNode(aElement);
+  return button && button->IsFirstChildOfSelectElement();
 }
 
 bool Gecko_LookupAttrValue(const Element* aElement, const nsAtom& aName,

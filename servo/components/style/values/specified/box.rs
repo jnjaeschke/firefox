@@ -1665,6 +1665,11 @@ pub enum Appearance {
     #[css(skip)]
     FocusOutline,
 
+    /// Customizable select appearance.
+    /// Only valid on select elements, computes to Auto otherwise.
+    /// https://drafts.csswg.org/css-forms-1/#appearance
+    BaseSelect,
+
     /// A dummy variant that should be last to let the GTK widget do hackery.
     #[css(skip)]
     Count,

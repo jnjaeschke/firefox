@@ -407,6 +407,94 @@ optgroup:before {
     /* No default focus ring, author controls */
     outline: none;
   }
+
+  /*
+   * Pseudo-elements for Customizable Select
+   * Phase 5: ::picker(select), ::picker-icon, ::checkmark
+   */
+
+  /* ::picker-icon - Generated dropdown indicator */
+  select::picker-icon {
+    content: "▼";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    text-align: center;
+    margin-inline-start: 0.5em;
+    color: currentColor;
+    font-size: 0.8em;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  /* ::checkmark - Selection indicator on options */
+  option::checkmark {
+    content: "✓";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    text-align: center;
+    margin-inline-end: 0.5em;
+    visibility: hidden;
+    font-size: 1em;
+    color: currentColor;
+    user-select: none;
+  }
+
+  option:checked::checkmark {
+    visibility: visible;
+  }
+
+  /* ::picker(select) - The popover picker/listbox */
+  select::picker {
+    display: block;
+    position: fixed;
+    width: auto;
+    min-width: fit-content;
+    max-height: 300px;
+    overflow: auto;
+    border: 1px solid ThreeDShadow;
+    background: Field;
+    color: FieldText;
+    padding: 0;
+    margin: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    visibility: hidden;
+    z-index: 2147483647;
+    inset: unset;
+  }
+
+  /* Options layout in picker */
+  select::picker > option {
+    display: flex;
+    align-items: center;
+    padding: 0.5em 1em;
+    cursor: pointer;
+  }
+
+  select::picker > option:hover {
+    background: SelectedItem;
+    color: SelectedItemText;
+  }
+
+  select::picker > option:checked {
+    background: SelectedItem;
+    color: SelectedItemText;
+    font-weight: bold;
+  }
+
+  /* Optgroup styling in picker */
+  select::picker > optgroup {
+    font-weight: bold;
+    color: GrayText;
+    padding: 0.5em 1em;
+  }
+
+  select:open::picker-icon {
+    transform: rotate(180deg);
+  }
 }
 
 *|*::-moz-dropdown-list {

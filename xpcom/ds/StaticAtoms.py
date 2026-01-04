@@ -2575,6 +2575,9 @@ STATIC_ATOMS = [
     PseudoElementAtom("PseudoElement_sliderThumb", ":slider-thumb"),
     PseudoElementAtom("PseudoElement_sliderFill", ":slider-fill"),
     PseudoElementAtom("PseudoElement_detailsContent", ":details-content"),
+    PseudoElementAtom("PseudoElement_picker", ":picker"),
+    PseudoElementAtom("PseudoElement_pickerIcon", ":picker-icon"),
+    PseudoElementAtom("PseudoElement_checkmark", ":checkmark"),
     # CSS anonymous boxes -- these must appear in the same order as
     # in nsCSSAnonBoxList.h
     NonInheritingAnonBoxAtom("AnonBox_oofPlaceholder", ":-moz-oof-placeholder"),

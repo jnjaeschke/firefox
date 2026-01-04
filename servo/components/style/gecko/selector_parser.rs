@@ -424,6 +424,15 @@ pub fn parse_functional_pseudo_element_with_name<'i, 't>(
         "highlight" => {
             PseudoElement::Highlight(AtomIdent::from(parser.expect_ident()?.as_ref()))
         },
+        "picker" => {
+            let arg = parser.expect_ident()?;
+            if !arg.eq_ignore_ascii_case("select") {
+                return Err(parser.new_custom_error(
+                    SelectorParseErrorKind::UnsupportedPseudoClassOrElement(name)
+                ));
+            }
+            PseudoElement::Picker
+        },
         "view-transition-group" => {
             PseudoElement::ViewTransitionGroup(PtNameAndClassSelector::parse(parser, target)?)
         },

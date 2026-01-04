@@ -110,6 +110,10 @@ class nsCSSPseudoElements {
       case Type::viewTransitionOld:
       case Type::viewTransitionNew:
         return mozilla::StaticPrefs::dom_viewTransitions_enabled();
+      case Type::picker:
+      case Type::pickerIcon:
+      case Type::checkmark:
+        return mozilla::StaticPrefs::dom_select_customizable_select_enabled();
       default:
         return !PseudoElementHasAnyFlag(
             aType, CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME);

@@ -118,3 +118,11 @@ CSS_PSEUDO_ELEMENT(sliderFill, ":slider-fill",
 CSS_PSEUDO_ELEMENT(detailsContent, ":details-content",
                    CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE |
                    CSS_PSEUDO_ELEMENT_ENABLED_IN_UA_SHEETS_AND_CHROME)
+
+// Customizable Select pseudo-elements
+CSS_PSEUDO_ELEMENT(picker, ":picker",
+                   CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE)
+CSS_PSEUDO_ELEMENT(pickerIcon, ":picker-icon",
+                   CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE)
+CSS_PSEUDO_ELEMENT(checkmark, ":checkmark",
+                   CSS_PSEUDO_ELEMENT_SUPPORTS_USER_ACTION_STATE)

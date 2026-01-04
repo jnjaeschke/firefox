@@ -1217,6 +1217,15 @@ void HTMLSelectElement::DoneAddingChildren(bool aHaveNotified) {
   }
 
   mDefaultSelectionSet = true;
+
+  // Update selectedcontent after parsing is complete.
+  // At this point, the select element and its options have been fully parsed,
+  // and the selection state has been determined (either from @selected
+  // attributes or by selecting the first option). Update selectedcontent to
+  // reflect the final selection state.
+  if (StaticPrefs::dom_select_customizable_select_enabled()) {
+    UpdateSelectedContent();
+  }
 }
 
 bool HTMLSelectElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,

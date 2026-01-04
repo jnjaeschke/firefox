@@ -3011,6 +3011,18 @@ nsCSSFrameConstructor::FindSelectData(const Element& aElement,
   // Construct a frame-based listbox or combobox
   const auto* sel = dom::HTMLSelectElement::FromNode(aElement);
   MOZ_ASSERT(sel);
+
+  // Check for customizable select (appearance: base-select)
+  if (StaticPrefs::dom_select_customizable_select_enabled() &&
+      aStyle.StyleDisplay()->EffectiveAppearance() ==
+          StyleAppearance::BaseSelect) {
+    // Use block frame for customizable select
+    // Children (button, options) construct normally
+    static constexpr FrameConstructionData sCustomizableSelectData{
+        ToCreationFunc(NS_NewBlockFrame)};
+    return &sCustomizableSelectData;
+  }
+
   if (sel->IsCombobox()) {
     static constexpr FrameConstructionData sComboboxData{
         ToCreationFunc(NS_NewComboboxControlFrame)};

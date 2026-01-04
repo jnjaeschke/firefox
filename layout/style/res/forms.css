@@ -361,6 +361,58 @@ optgroup:before {
   }
 }
 
+/**
+ * Customizable Select (appearance: base-select)
+ * https://html.spec.whatwg.org/#the-select-element
+ * https://drafts.csswg.org/css-forms-1/#appearance-property
+ */
+
+@supports (-moz-bool-pref: "dom.select.customizable_select.enabled") {
+
+  /* Base select removes native appearance */
+  select[style*="appearance: base-select"],
+  select[style*="appearance:base-select"] {
+    /* Remove native select widget */
+    appearance: none !important;
+
+    /* Display as block-level container */
+    display: block;
+
+    /* Remove default select borders/padding */
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: none;
+
+    /* Allow author sizing */
+    width: auto;
+    height: auto;
+
+    /* Remove dropdown arrow */
+    background-image: none;
+
+    /* Remove other default styles */
+    font: inherit;
+    white-space: normal;
+    overflow: visible;
+  }
+
+  /* Hide options by default (shown in picker) */
+  select[style*="appearance: base-select"] > option,
+  select[style*="appearance: base-select"] > optgroup,
+  select[style*="appearance:base-select"] > option,
+  select[style*="appearance:base-select"] > optgroup {
+    display: none !important;
+  }
+
+  /* Focus styling */
+  select[style*="appearance: base-select"]:focus,
+  select[style*="appearance:base-select"]:focus {
+    /* No default focus ring, author controls */
+    outline: none;
+  }
+}
+
 *|*::-moz-dropdown-list {
   content: inherit;
   z-index: 2147483647;

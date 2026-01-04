@@ -713,7 +713,8 @@ void HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex, bool aNotify) {
   // Update selectedcontent when selection changes programmatically.
   // Spec: https://html.spec.whatwg.org/#the-select-element
   // This corresponds to "update a select's selectedcontent" being called from
-  // the selectedIndex setter (https://html.spec.whatwg.org/#dom-select-selectedindex)
+  // the selectedIndex setter
+  // (https://html.spec.whatwg.org/#dom-select-selectedindex)
   if (aNotify && StaticPrefs::dom_select_customizable_select_enabled()) {
     UpdateSelectedContent();
   }

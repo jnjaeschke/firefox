@@ -272,6 +272,25 @@ HTMLSelectElement* HTMLOptionElement::GetSelect() const {
   return HTMLSelectElement::FromNodeOrNull(parent->GetParent());
 }
 
+bool HTMLOptionElement::ShouldRenderRichContent() const {
+  // Spec: Render children if:
+  // 1. Option is in select drop-down box with base appearance
+  // 2. Select's popover has base appearance
+  // 3. Option has no label attribute
+
+  HTMLSelectElement* select = GetSelect();
+  if (!select || !select->IsCustomizableSelect()) {
+    return false;
+  }
+
+  // Check if has label attribute
+  if (HasAttr(nsGkAtoms::label)) {
+    return false;
+  }
+
+  return true;
+}
+
 already_AddRefed<HTMLOptionElement> HTMLOptionElement::Option(
     const GlobalObject& aGlobal, const nsAString& aText,
     const Optional<nsAString>& aValue, bool aDefaultSelected, bool aSelected,

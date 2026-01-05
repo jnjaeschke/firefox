@@ -48,9 +48,11 @@
 #include "mozilla/dom/ElementInlines.h"
 #include "mozilla/dom/GeneratedImageContent.h"
 #include "mozilla/dom/HTMLInputElement.h"
+#include "mozilla/dom/HTMLOptionElement.h"
 #include "mozilla/dom/HTMLSelectElement.h"
 #include "mozilla/dom/HTMLSharedListElement.h"
 #include "mozilla/dom/HTMLSummaryElement.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/intl/LocaleService.h"
 #include "nsAtom.h"
 #include "nsAutoLayoutPhase.h"
@@ -3016,10 +3018,9 @@ nsCSSFrameConstructor::FindSelectData(const Element& aElement,
   if (StaticPrefs::dom_select_customizable_select_enabled() &&
       aStyle.StyleDisplay()->EffectiveAppearance() ==
           StyleAppearance::BaseSelect) {
-    // Use block frame for customizable select
-    // Children (button, options) construct normally
+    // Use flex container frame for customizable select with shadow DOM
     static constexpr FrameConstructionData sCustomizableSelectData{
-        ToCreationFunc(NS_NewBlockFrame)};
+        &nsCSSFrameConstructor::ConstructCustomizableSelectFrame};
     return &sCustomizableSelectData;
   }
 
@@ -3092,6 +3093,46 @@ void nsCSSFrameConstructor::InitializeListboxSelect(
   // Set the scrolled frame's initial child lists
   scrolledFrame->SetInitialChildList(FrameChildListID::Principal,
                                      std::move(childList));
+}
+
+nsIFrame* nsCSSFrameConstructor::ConstructCustomizableSelectFrame(
+    nsFrameConstructorState& aState, FrameConstructionItem& aItem,
+    nsContainerFrame* aParentFrame, const nsStyleDisplay* aStyleDisplay,
+    nsFrameList& aFrameList) {
+  nsIContent* const content = aItem.mContent;
+  ComputedStyle* const computedStyle = aItem.mComputedStyle;
+
+  // Spec: customizable select uses inline-flex display
+  // Create flex container frame
+  nsContainerFrame* selectFrame =
+      NS_NewFlexContainerFrame(mPresShell, computedStyle);
+
+  // Initialize the frame
+  nsContainerFrame* geometricParent =
+      aState.GetGeometricParent(*aStyleDisplay, aParentFrame);
+  selectFrame->Init(content, geometricParent, nullptr);
+  aState.AddChild(selectFrame, aFrameList, content, aParentFrame);
+
+  // Ensure shadow root exists for customizable select
+  auto* selectElement = dom::HTMLSelectElement::FromNode(content);
+  if (selectElement) {
+    selectElement->EnsureSelectShadowRoot();
+  }
+
+  // Process children (including shadow DOM)
+  // FlattenedChildIterator will handle both light DOM and shadow DOM children
+  nsFrameConstructorSaveState floatSaveState;
+  aState.MaybePushFloatContainingBlock(selectFrame, floatSaveState);
+
+  nsFrameList childList;
+  ProcessChildren(aState, content, computedStyle, selectFrame, false, childList,
+                  false);
+
+  // Set the frame's initial child lists
+  selectFrame->SetInitialChildList(FrameChildListID::Principal,
+                                   std::move(childList));
+
+  return selectFrame;
 }
 
 nsIFrame* nsCSSFrameConstructor::ConstructFieldSetFrame(
@@ -5004,10 +5045,14 @@ static bool ShouldSuppressFrameInSelect(const nsIContent* aParent,
     }
   }
 
-  // Options with labels have their label text added in ::before by forms.css.
-  // Suppress frames for their child text.
+  // Options may render child content or just label text.
+  // In customizable select without label attribute: render children (images,
+  // spans, etc.) Otherwise: suppress children (label text added via forms.css
+  // or native rendering)
   if (aParent->IsHTMLElement(nsGkAtoms::option)) {
-    return aParent->AsElement()->HasNonEmptyAttr(nsGkAtoms::label);
+    const auto* option = dom::HTMLOptionElement::FromNode(aParent);
+    // Suppress unless rendering rich content
+    return !(option && option->ShouldRenderRichContent());
   }
 
   // If we're in any display: contents subtree, just suppress the frame.

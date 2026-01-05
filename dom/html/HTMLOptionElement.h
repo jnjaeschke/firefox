@@ -115,6 +115,14 @@ class HTMLOptionElement final : public nsGenericHTMLElement {
    */
   HTMLSelectElement* GetSelect() const;
 
+  /**
+   * Determine if this option should render its child elements (images, spans,
+   * etc.) instead of just the label text. Per spec, returns true when:
+   * - Option is in a customizable select (appearance: base-select)
+   * - Option has no label attribute
+   */
+  bool ShouldRenderRichContent() const;
+
  protected:
   virtual ~HTMLOptionElement();
 

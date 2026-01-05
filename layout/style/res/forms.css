@@ -369,43 +369,60 @@ optgroup:before {
 
 @supports (-moz-bool-pref: "dom.select.customizable_select.enabled") {
 
-  /* Base select removes native appearance */
+  /* Customizable select uses inline-flex layout */
   select:-moz-customizable-select {
     /* Remove native select widget */
     appearance: none !important;
 
-    /* Display as block-level container */
-    display: block;
+    /* Display as inline-flex container per spec */
+    display: inline-flex;
+    gap: 0.5em;
+    align-items: center;
 
-    /* Remove default select borders/padding */
-    border: none;
-    padding: 0;
-    margin: 0;
-    background: none;
+    /* Box model */
+    padding-block: 0.25em;
+    padding-inline: 0.5em;
+    border: 1px solid currentColor;
+    border-radius: 0.5em;
+    background-color: transparent;
+    box-sizing: border-box;
 
-    /* Allow author sizing */
-    width: auto;
-    height: auto;
+    /* Minimum sizing for accessibility (WCAG 2.2: 24x24px targets) */
+    min-block-size: max(24px, 1lh);
+    min-inline-size: 24px;
 
-    /* Remove dropdown arrow */
-    background-image: none;
+    /* Text resets */
+    text-transform: initial;
+    text-align: initial;
+    text-indent: initial;
 
-    /* Remove other default styles */
-    font: inherit;
-    white-space: normal;
-    overflow: visible;
+    /* User interaction */
+    user-select: none;
   }
 
-  /* Hide options by default (shown in picker) */
+  /* First button child acts as transparent container */
+  select:-moz-customizable-select > button:first-child {
+    all: unset;
+    display: contents;
+  }
+
+  /* Interaction states */
+  select:-moz-customizable-select:enabled:hover {
+    background-color: color-mix(in lab, currentColor 10%, transparent);
+  }
+
+  select:-moz-customizable-select:enabled:active {
+    background-color: color-mix(in lab, currentColor 20%, transparent);
+  }
+
+  select:-moz-customizable-select:disabled {
+    color: color-mix(in lab, currentColor 50%, transparent);
+  }
+
+  /* Hide light DOM options (shown in picker via shadow DOM) */
   select:-moz-customizable-select > option,
   select:-moz-customizable-select > optgroup {
     display: none !important;
-  }
-
-  /* Focus styling */
-  select:-moz-customizable-select:focus {
-    /* No default focus ring, author controls */
-    outline: none;
   }
 
   /*
@@ -447,42 +464,53 @@ optgroup:before {
     visibility: visible;
   }
 
-  /* ::picker(select) - The popover picker/listbox */
+  /* The picker dropdown - hidden by default until opened */
   select::picker {
-    display: block;
-    position: fixed;
-    width: auto;
-    min-width: fit-content;
-    max-height: 300px;
-    overflow: auto;
-    border: 1px solid ThreeDShadow;
-    background: Field;
-    color: FieldText;
+    /* Hidden initially, shown via popover API */
+    display: none;
+
+    /* Box model */
+    box-sizing: border-box;
+    border: 1px solid;
     padding: 0;
     margin: 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    visibility: hidden;
-    z-index: 2147483647;
-    inset: unset;
+    overflow: auto;
+
+    /* Colors */
+    color: CanvasText;
+    background-color: Canvas;
+
+    /* Sizing */
+    min-inline-size: 200px;
+    max-block-size: 400px;
+
+    /* Positioning */
+    position: absolute;
+    inset: auto;
   }
 
-  /* Options layout in picker */
+  /* Option elements use flex layout for horizontal alignment */
   select::picker > option {
     display: flex;
     align-items: center;
-    padding: 0.5em 1em;
-    cursor: pointer;
+    gap: 0.5em;
+    padding-inline: 0.5em;
+    padding-block-end: 0;
+    min-inline-size: 24px;
+    min-block-size: max(24px, 1lh);
+    white-space: nowrap;
   }
 
-  select::picker > option:hover {
-    background: SelectedItem;
-    color: SelectedItemText;
+  select::picker > option:enabled:hover {
+    background-color: color-mix(in lab, currentColor 10%, transparent);
   }
 
-  select::picker > option:checked {
-    background: SelectedItem;
-    color: SelectedItemText;
-    font-weight: bold;
+  select::picker > option:enabled:active {
+    background-color: color-mix(in lab, currentColor 20%, transparent);
+  }
+
+  select::picker > option:disabled {
+    color: color-mix(in lab, currentColor 50%, transparent);
   }
 
   /* Optgroup styling in picker */

@@ -190,6 +190,32 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
 
   void ShowPicker(ErrorResult& aRv);
 
+  /**
+   * Returns true if this select uses appearance: base-select (customizable).
+   */
+  bool IsCustomizableSelect() const;
+
+  /**
+   * Returns true if this is a customizable select with its picker open.
+   * Only meaningful when IsCustomizableSelect() is true.
+   */
+  bool IsPickerOpen() const;
+
+  /**
+   * Set the open state of the picker for customizable select.
+   * Updates ElementState::OPEN and invalidates style.
+   *
+   * @param aOpen True to open, false to close
+   * @param aNotify Whether to notify document observers (default true)
+   */
+  void SetPickerOpen(bool aOpen, bool aNotify = true);
+
+  /**
+   * Toggle the picker open/closed state.
+   * Convenience method for interactive testing.
+   */
+  void TogglePicker();
+
   using nsINode::Remove;
 
   // nsINode
@@ -197,6 +223,7 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
 
   // nsIContent
   void GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
+  nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
   bool IsHTMLFocusable(IsFocusableFlags, bool* aIsFocusable,
                        int32_t* aTabIndex) override;
@@ -507,6 +534,12 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   bool mDefaultSelectionSet : 1;
   /** True if we're open in the parent process */
   bool mIsOpenInParentProcess : 1;
+  /**
+   * Whether the customizable select picker is currently open.
+   * Only used when appearance: base-select is set.
+   * Phase 6: State tracking for :open pseudo-class.
+   */
+  bool mPickerOpen : 1;
 
   /** The number of non-options as children of the select */
   uint32_t mNonOptionChildren;

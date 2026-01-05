@@ -121,6 +121,7 @@ HTMLSelectElement::HTMLSelectElement(
       mUserInteracted(false),
       mDefaultSelectionSet(false),
       mIsOpenInParentProcess(false),
+      mPickerOpen(false),
       mNonOptionChildren(0),
       mOptGroupCount(0),
       mSelectedIndex(-1) {
@@ -226,6 +227,52 @@ void HTMLSelectElement::ShowPicker(ErrorResult& aRv) {
                                         CanBubble::eYes, Cancelable::eNo);
   }
 }
+
+// Phase 6: Customizable Select - :open pseudo-class support
+
+bool HTMLSelectElement::IsCustomizableSelect() const {
+  // Check if pref is enabled
+  if (!StaticPrefs::dom_select_customizable_select_enabled()) {
+    return false;
+  }
+
+  // Check if element has appearance: base-select
+  // Get the primary frame's computed style
+  if (nsIFrame* frame = GetPrimaryFrame()) {
+    if (const ComputedStyle* style = frame->Style()) {
+      return style->StyleDisplay()->EffectiveAppearance() ==
+             StyleAppearance::BaseSelect;
+    }
+  }
+
+  return false;
+}
+
+bool HTMLSelectElement::IsPickerOpen() const { return mPickerOpen; }
+
+void HTMLSelectElement::SetPickerOpen(bool aOpen, bool aNotify) {
+  // Only applies to customizable select
+  if (!IsCustomizableSelect()) {
+    return;
+  }
+
+  // No change needed
+  if (mPickerOpen == aOpen) {
+    return;
+  }
+
+  // Update internal state
+  mPickerOpen = aOpen;
+
+  // Update ElementState and notify (triggers :open CSS matching)
+  // This handles both adding/removing state and invalidating style
+  SetStates(ElementState::OPEN, aOpen, aNotify);
+
+  // Phase 9: Will trigger popover show/hide here
+  // Phase 9: Will dispatch toggle events here
+}
+
+void HTMLSelectElement::TogglePicker() { SetPickerOpen(!mPickerOpen); }
 
 void HTMLSelectElement::GetAutocomplete(DOMString& aValue) {
   const nsAttrValue* attributeVal = GetParsedAttr(nsGkAtoms::autocomplete);

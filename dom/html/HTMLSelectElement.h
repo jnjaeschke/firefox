@@ -37,6 +37,7 @@ class FormData;
 class HTMLElementOrLong;
 class HTMLOptionElementOrHTMLOptGroupElement;
 class HTMLSelectElement;
+class HTMLSlotElement;
 
 class MOZ_STACK_CLASS SafeOptionListMutation {
  public:
@@ -216,6 +217,37 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
    */
   void TogglePicker();
 
+  // Phase 7: Customizable Select - UA Shadow DOM Structure
+
+  /**
+   * Ensure the UA shadow root exists for customizable select.
+   * Creates shadow root and constructs shadow tree if needed.
+   * Only for drop-down selects (not multiple, size <= 1).
+   */
+  void EnsureSelectShadowRoot();
+
+  /**
+   * Get the select popover element from the shadow tree.
+   * Returns nullptr if shadow root doesn't exist or not customizable.
+   */
+  Element* GetSelectPopover() const;
+
+  /**
+   * Get the fallback button text element from the shadow tree.
+   * Returns nullptr if shadow root doesn't exist or not customizable.
+   */
+  Element* GetFallbackButtonText() const;
+
+  /**
+   * Get the button slot element from the shadow tree.
+   */
+  HTMLSlotElement* GetButtonSlot() const;
+
+  /**
+   * Get the popover slot element from the shadow tree.
+   */
+  HTMLSlotElement* GetPopoverSlot() const;
+
   using nsINode::Remove;
 
   // nsINode
@@ -372,6 +404,12 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   void UpdateSelectedContent();
   void ClearNonPrimarySelectedContents();
 
+  /**
+   * Update the fallback button text from the selected option.
+   * Only applies to customizable select with shadow DOM.
+   */
+  void UpdateFallbackButtonText();
+
  protected:
   virtual ~HTMLSelectElement() = default;
 
@@ -511,6 +549,25 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
 
   void CloneOptionIntoSelectedContent(HTMLOptionElement* aOption,
                                       HTMLSelectedContentElement* aTarget);
+
+  // Phase 7: Customizable Select - Shadow DOM helpers
+
+  /**
+   * Construct the shadow tree structure.
+   * Called once when shadow root is first created.
+   */
+  void ConstructShadowTree();
+
+  /**
+   * Distribute select children to appropriate slots.
+   * Called on DOM mutations and initial construction.
+   */
+  void DistributeSelectContent();
+
+  /**
+   * Check if this is a drop-down select (not multiple, size <= 1).
+   */
+  bool IsDropDownSelect() const;
 
   /** The options[] array */
   RefPtr<HTMLOptionsCollection> mOptions;

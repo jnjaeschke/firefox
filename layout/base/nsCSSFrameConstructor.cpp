@@ -4992,6 +4992,18 @@ static bool ShouldSuppressFrameInSelect(const nsIContent* aParent,
     return false;
   }
 
+  // For customizable select (appearance: base-select), allow all children
+  // including buttons, divs, and shadow DOM content.
+  if (StaticPrefs::dom_select_customizable_select_enabled() &&
+      aParent->IsHTMLElement(nsGkAtoms::select)) {
+    const auto* select = dom::HTMLSelectElement::FromNode(aParent);
+    if (select && select->IsCustomizableSelect()) {
+      // Shadow DOM children are already allowed above.
+      // Allow buttons and other interactive/structural elements.
+      return false;
+    }
+  }
+
   // Options with labels have their label text added in ::before by forms.css.
   // Suppress frames for their child text.
   if (aParent->IsHTMLElement(nsGkAtoms::option)) {

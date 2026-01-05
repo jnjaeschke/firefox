@@ -20,6 +20,8 @@
 #include "mozilla/dom/HTMLOptionElement.h"
 #include "mozilla/dom/HTMLSelectElementBinding.h"
 #include "mozilla/dom/HTMLSelectedContentElement.h"
+#include "mozilla/dom/HTMLSlotElement.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "nsComboboxControlFrame.h"
@@ -274,6 +276,201 @@ void HTMLSelectElement::SetPickerOpen(bool aOpen, bool aNotify) {
 
 void HTMLSelectElement::TogglePicker() { SetPickerOpen(!mPickerOpen); }
 
+bool HTMLSelectElement::IsDropDownSelect() const {
+  return !Multiple() && Size() <= 1;
+}
+
+void HTMLSelectElement::EnsureSelectShadowRoot() {
+  if (!IsCustomizableSelect()) {
+    return;
+  }
+
+  if (!IsDropDownSelect()) {
+    return;
+  }
+
+  if (GetShadowRoot()) {
+    return;
+  }
+
+  RefPtr<ShadowRoot> shadow =
+      AttachShadowWithoutNameChecks(ShadowRootMode::Closed);
+  if (!shadow) {
+    NS_WARNING("Failed to attach shadow root to select element");
+    return;
+  }
+
+  shadow->SetIsUAWidget();
+
+  ConstructShadowTree();
+
+  DistributeSelectContent();
+}
+
+void HTMLSelectElement::ConstructShadowTree() {
+  ShadowRoot* shadow = GetShadowRoot();
+  if (!shadow) {
+    return;
+  }
+
+  Document* doc = OwnerDoc();
+  ErrorResult rv;
+
+  // [1] Create select button slot
+  // Spec: https://html.spec.whatwg.org/multipage/form-elements.html#the-select-element:shadow-tree
+  // "The select button slot, which is a slot element."
+  RefPtr<Element> buttonSlot =
+      doc->CreateElem(u"slot"_ns, nullptr, kNameSpaceID_XHTML);
+  buttonSlot->SetAttr(kNameSpaceID_None, nsGkAtoms::name, u"button-slot"_ns,
+                      false);
+
+  // [2] Create select fallback button text (child of button slot)
+  // Spec: "The select fallback button text, which is a div element."
+  RefPtr<Element> fallbackText =
+      doc->CreateElem(u"div"_ns, nullptr, kNameSpaceID_XHTML);
+  fallbackText->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
+                        u"select-fallback-button-text"_ns, false);
+
+  buttonSlot->AppendChildTo(fallbackText, false, rv);
+  if (rv.Failed()) {
+    rv.SuppressException();
+    return;
+  }
+
+  shadow->AppendChildTo(buttonSlot, false, rv);
+  if (rv.Failed()) {
+    rv.SuppressException();
+    return;
+  }
+
+  // [3] Create select popover
+  // Spec: "The select popover, which is a div element."
+  // "The ::picker(select) pseudo-element, if supported, targets the
+  // select popover."
+  RefPtr<Element> popover = doc->CreateElem(u"div"_ns, nullptr, kNameSpaceID_XHTML);
+  popover->SetAttr(kNameSpaceID_None, nsGkAtoms::_class, u"select-popover"_ns,
+                   false);
+  // Mark as implementing the ::picker pseudo-element for CSS targeting
+  popover->SetPseudoElementType(PseudoStyleType::picker);
+
+  // [4] Create select popover slot (child of popover)
+  // Spec: "The select popover slot, which is a slot element."
+  RefPtr<Element> popoverSlot =
+      doc->CreateElem(u"slot"_ns, nullptr, kNameSpaceID_XHTML);
+  popoverSlot->SetAttr(kNameSpaceID_None, nsGkAtoms::name, u"popover-slot"_ns,
+                       false);
+
+  popover->AppendChildTo(popoverSlot, false, rv);
+  if (rv.Failed()) {
+    rv.SuppressException();
+    return;
+  }
+
+  shadow->AppendChildTo(popover, false, rv);
+  if (rv.Failed()) {
+    rv.SuppressException();
+    return;
+  }
+}
+
+void HTMLSelectElement::DistributeSelectContent() {
+  if (!IsCustomizableSelect() || !GetShadowRoot()) {
+    return;
+  }
+
+  HTMLSlotElement* buttonSlot = GetButtonSlot();
+  HTMLSlotElement* popoverSlot = GetPopoverSlot();
+  Element* fallbackText = GetFallbackButtonText();
+
+  if (!buttonSlot || !popoverSlot || !fallbackText) {
+    return;
+  }
+
+  buttonSlot->ClearAssignedNodes();
+  popoverSlot->ClearAssignedNodes();
+
+  Element* firstChild = GetFirstElementChild();
+  bool firstIsButton =
+      firstChild && firstChild->IsHTMLElement(nsGkAtoms::button);
+
+  if (firstIsButton) {
+    buttonSlot->AppendAssignedNode(*firstChild);
+    fallbackText->SetAttr(kNameSpaceID_None, nsGkAtoms::hidden, u""_ns, true);
+  } else {
+    fallbackText->UnsetAttr(kNameSpaceID_None, nsGkAtoms::hidden, true);
+  }
+
+  for (nsIContent* child = GetFirstChild(); child;
+       child = child->GetNextSibling()) {
+    Element* element = Element::FromNode(child);
+    if (!element) {
+      continue;
+    }
+
+    if (firstIsButton && element == firstChild) {
+      continue;
+    }
+
+    popoverSlot->AppendAssignedNode(*element);
+  }
+}
+
+Element* HTMLSelectElement::GetSelectPopover() const {
+  ShadowRoot* shadow = GetShadowRoot();
+  if (!shadow) {
+    return nullptr;
+  }
+
+  Element* popover = shadow->GetLastElementChild();
+  if (popover && popover->HasAttr(nsGkAtoms::_class)) {
+    nsAutoString className;
+    popover->GetAttr(nsGkAtoms::_class, className);
+    if (className.EqualsLiteral("select-popover")) {
+      return popover;
+    }
+  }
+
+  return nullptr;
+}
+
+Element* HTMLSelectElement::GetFallbackButtonText() const {
+  HTMLSlotElement* buttonSlot = GetButtonSlot();
+  if (!buttonSlot) {
+    return nullptr;
+  }
+
+  Element* fallback = buttonSlot->GetFirstElementChild();
+  if (fallback && fallback->HasAttr(nsGkAtoms::_class)) {
+    nsAutoString className;
+    fallback->GetAttr(nsGkAtoms::_class, className);
+    if (className.EqualsLiteral("select-fallback-button-text")) {
+      return fallback;
+    }
+  }
+
+  return nullptr;
+}
+
+HTMLSlotElement* HTMLSelectElement::GetButtonSlot() const {
+  ShadowRoot* shadow = GetShadowRoot();
+  if (!shadow) {
+    return nullptr;
+  }
+
+  Element* slot = shadow->GetFirstElementChild();
+  return HTMLSlotElement::FromNodeOrNull(slot);
+}
+
+HTMLSlotElement* HTMLSelectElement::GetPopoverSlot() const {
+  Element* popover = GetSelectPopover();
+  if (!popover) {
+    return nullptr;
+  }
+
+  Element* slot = popover->GetFirstElementChild();
+  return HTMLSlotElement::FromNodeOrNull(slot);
+}
+
 void HTMLSelectElement::GetAutocomplete(DOMString& aValue) {
   const nsAttrValue* attributeVal = GetParsedAttr(nsGkAtoms::autocomplete);
 
@@ -298,6 +495,10 @@ void HTMLSelectElement::InsertChildBefore(
   if (aRv.Failed()) {
     safeMutation.MutationFailed();
   }
+
+  if (IsCustomizableSelect()) {
+    DistributeSelectContent();
+  }
 }
 
 void HTMLSelectElement::RemoveChildNode(
@@ -307,6 +508,10 @@ void HTMLSelectElement::RemoveChildNode(
                                       *ComputeIndexOf(aKid), aNotify);
   nsGenericHTMLFormControlElementWithState::RemoveChildNode(
       aKid, aNotify, aState, aNewParent, aMutationEffectOnScript);
+
+  if (IsCustomizableSelect()) {
+    DistributeSelectContent();
+  }
 }
 
 void HTMLSelectElement::InsertOptionsIntoList(nsIContent* aOptions,
@@ -764,6 +969,7 @@ void HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex, bool aNotify) {
   // (https://html.spec.whatwg.org/#dom-select-selectedindex)
   if (aNotify && StaticPrefs::dom_select_customizable_select_enabled()) {
     UpdateSelectedContent();
+    UpdateFallbackButtonText();
   }
 }
 
@@ -1152,6 +1358,10 @@ nsresult HTMLSelectElement::BindToTree(BindContext& aContext,
   // And now make sure our state is up to date
   UpdateValidityElementStates(false);
 
+  if (IsCustomizableSelect()) {
+    EnsureSelectShadowRoot();
+  }
+
   return rv;
 }
 
@@ -1273,6 +1483,7 @@ void HTMLSelectElement::DoneAddingChildren(bool aHaveNotified) {
   // reflect the final selection state.
   if (StaticPrefs::dom_select_customizable_select_enabled()) {
     UpdateSelectedContent();
+    UpdateFallbackButtonText();
   }
 }
 
@@ -1495,6 +1706,7 @@ HTMLSelectElement::Reset() {
   // updated to match. This is part of the overall selection synchronization.
   if (StaticPrefs::dom_select_customizable_select_enabled()) {
     UpdateSelectedContent();
+    UpdateFallbackButtonText();
   }
 
   // Let the frame know we were reset
@@ -1675,6 +1887,7 @@ void HTMLSelectElement::OnSelectionChanged() {
   }
 
   UpdateSelectedOptions();
+  UpdateFallbackButtonText();
 }
 
 void HTMLSelectElement::UpdateSelectedOptions() {
@@ -1845,6 +2058,35 @@ void HTMLSelectElement::ClearNonPrimarySelectedContents() {
     }
     // 2.2 Otherwise, run clear a selectedcontent given descendant.
     selectedContent->ClearContent();
+  }
+}
+
+void HTMLSelectElement::UpdateFallbackButtonText() {
+  if (!IsCustomizableSelect()) {
+    return;
+  }
+
+  Element* fallbackText = GetFallbackButtonText();
+  if (!fallbackText) {
+    return;
+  }
+
+  // Get selected option's label
+  nsAutoString label;
+  const int32_t selectedIndex = SelectedIndex();
+
+  if (selectedIndex >= 0) {
+    RefPtr<HTMLOptionElement> option = Item(static_cast<uint32_t>(selectedIndex));
+    if (option) {
+      option->GetLabel(label);
+    }
+  }
+
+  // Set text content
+  ErrorResult rv;
+  fallbackText->SetTextContent(label, rv);
+  if (rv.Failed()) {
+    rv.SuppressException();
   }
 }
 

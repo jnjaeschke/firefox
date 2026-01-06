@@ -24,7 +24,7 @@ class HTMLSelectedContentElement final : public nsGenericHTMLElement {
   void SetDisabled(bool aDisabled) { mDisabled = aDisabled; }
   bool IsDisabled() const { return mDisabled; }
 
-  void ClearContent();
+  MOZ_CAN_RUN_SCRIPT void ClearContent();
 
   // Spec: selectedcontent post-connection steps
   // https://html.spec.whatwg.org/#the-selectedcontent-element

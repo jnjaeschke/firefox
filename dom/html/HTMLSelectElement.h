@@ -209,13 +209,14 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
    * @param aOpen True to open, false to close
    * @param aNotify Whether to notify document observers (default true)
    */
-  void SetPickerOpen(bool aOpen, bool aNotify = true);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void SetPickerOpen(bool aOpen,
+                                                 bool aNotify = true);
 
   /**
    * Toggle the picker open/closed state.
    * Convenience method for interactive testing.
    */
-  void TogglePicker();
+  MOZ_CAN_RUN_SCRIPT void TogglePicker();
 
   // Phase 7: Customizable Select - UA Shadow DOM Structure
 

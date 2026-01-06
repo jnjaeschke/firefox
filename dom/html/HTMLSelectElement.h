@@ -403,8 +403,8 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
   }
   void GetAutofillState(nsAString& aState) { GetFormAutofillState(aState); }
 
-  void UpdateSelectedContent();
-  void ClearNonPrimarySelectedContents();
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void UpdateSelectedContent();
+  MOZ_CAN_RUN_SCRIPT void ClearNonPrimarySelectedContents();
 
   /**
    * Update the fallback button text from the selected option.
@@ -549,8 +549,8 @@ class HTMLSelectElement final : public nsGenericHTMLFormControlElementWithState,
 
   HTMLSelectedContentElement* GetEnabledSelectedContent();
 
-  void CloneOptionIntoSelectedContent(HTMLOptionElement* aOption,
-                                      HTMLSelectedContentElement* aTarget);
+  MOZ_CAN_RUN_SCRIPT void CloneOptionIntoSelectedContent(
+      HTMLOptionElement* aOption, HTMLSelectedContentElement* aTarget);
 
   // Phase 7: Customizable Select - Shadow DOM helpers
 

@@ -41,8 +41,8 @@ class HTMLSelectedContentElement final : public nsGenericHTMLElement {
                      JS::Handle<JSObject*> aGivenProto) override;
 
  private:
-  void PostConnectionSteps(nsINode* aParent);
-  void ElementRemovingSteps(nsINode* aOldParent);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void PostConnectionSteps(nsINode* aParent);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void ElementRemovingSteps(nsINode* aOldParent);
 
   // https://html.spec.whatwg.org/#selectedcontent-disabled
   bool mDisabled = false;

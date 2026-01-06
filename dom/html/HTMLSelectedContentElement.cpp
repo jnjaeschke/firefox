@@ -52,7 +52,7 @@ void HTMLSelectedContentElement::PostConnectionSteps(nsINode* aParent) {
   // selectedcontent, are:
 
   // 1. Let nearestSelectAncestor be null.
-  HTMLSelectElement* nearestSelectAncestor = nullptr;
+  RefPtr<HTMLSelectElement> nearestSelectAncestor = nullptr;
 
   // 3. Set selectedcontent's disabled state to false.
   SetDisabled(false);
@@ -115,7 +115,7 @@ void HTMLSelectedContentElement::ElementRemovingSteps(nsINode* aOldParent) {
        ancestor = ancestor->GetParent()) {
     // 2.1 If ancestor is a select element, then run update a select's
     //     selectedcontent given ancestor and return.
-    if (auto* select = HTMLSelectElement::FromNode(ancestor)) {
+    if (RefPtr select = HTMLSelectElement::FromNode(ancestor)) {
       select->UpdateSelectedContent();
       return;
     }

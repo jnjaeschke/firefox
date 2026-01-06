@@ -16,11 +16,13 @@
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/FormData.h"
+#include "mozilla/dom/HTMLElementBinding.h"
 #include "mozilla/dom/HTMLOptGroupElement.h"
 #include "mozilla/dom/HTMLOptionElement.h"
 #include "mozilla/dom/HTMLSelectElementBinding.h"
 #include "mozilla/dom/HTMLSelectedContentElement.h"
 #include "mozilla/dom/HTMLSlotElement.h"
+#include "mozilla/dom/PopoverData.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/dom/WindowGlobalChild.h"
@@ -37,6 +39,7 @@
 #include "nsServiceManagerUtils.h"
 #include "nsStyleConsts.h"
 #include "nsTextNode.h"
+#include "mozilla/TextEvents.h"
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Select)
 
@@ -213,6 +216,14 @@ void HTMLSelectElement::ShowPicker(ErrorResult& aRv) {
   // Step 5. Otherwise, the user agent should show any relevant user interface
   // for selecting a value for element, in the way it normally would when the
   // user interacts with the control.
+
+  // For customizable select, open the picker popover
+  if (IsCustomizableSelect()) {
+    SetPickerOpen(true);
+    return;
+  }
+
+  // Legacy select behavior
 #if !defined(ANDROID)
   if (!IsCombobox()) {
     return;
@@ -263,15 +274,48 @@ void HTMLSelectElement::SetPickerOpen(bool aOpen, bool aNotify) {
     return;
   }
 
-  // Update internal state
+  // Get the picker element
+  Element* picker = GetSelectPopover();
+  if (!picker) {
+    return;
+  }
+
+  RefPtr pickerHTML = nsGenericHTMLElement::FromNode(picker);
+  if (!pickerHTML) {
+    return;
+  }
+
+  // Update internal state first
   mPickerOpen = aOpen;
 
   // Update ElementState and notify (triggers :open CSS matching)
-  // This handles both adding/removing state and invalidating style
   SetStates(ElementState::OPEN, aOpen, aNotify);
 
-  // Phase 9: Will trigger popover show/hide here
-  // Phase 9: Will dispatch toggle events here
+  // Show or hide the popover
+  ErrorResult rv;
+  if (aOpen) {
+    // Prepare options for ShowPopover
+    ShowPopoverOptions options;
+    options.mSource.Construct(*this);
+
+    // Show the popover (will fire beforetoggle/toggle events, add to top layer)
+    pickerHTML->ShowPopover(options, rv);
+    if (rv.Failed()) {
+      // Revert state if showing failed
+      mPickerOpen = false;
+      SetStates(ElementState::OPEN, false, aNotify);
+      rv.SuppressException();
+    }
+  } else {
+    // Hide the popover (will fire beforetoggle/toggle events, remove from top layer)
+    pickerHTML->HidePopover(rv);
+    if (rv.Failed()) {
+      // Revert state if hiding failed
+      mPickerOpen = true;
+      SetStates(ElementState::OPEN, true, aNotify);
+      rv.SuppressException();
+    }
+  }
 }
 
 void HTMLSelectElement::TogglePicker() { SetPickerOpen(!mPickerOpen); }
@@ -352,6 +396,11 @@ void HTMLSelectElement::ConstructShadowTree() {
                    false);
   // Mark as implementing the ::picker pseudo-element for CSS targeting
   popover->SetPseudoElementType(PseudoStyleType::picker);
+
+  // Mark picker as implicit popover (no explicit popover attribute).
+  // This enables automatic popover behavior: top layer, light dismiss, etc.
+  PopoverData& popoverData = popover->EnsurePopoverData();
+  popoverData.SetPopoverAttributeState(PopoverAttributeState::Auto);
 
   // [4] Create select popover slot (child of popover)
   // Spec: "The select popover slot, which is a slot element."
@@ -971,6 +1020,13 @@ void HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex, bool aNotify) {
     UpdateSelectedContent();
     UpdateFallbackButtonText();
   }
+
+  // For customizable select, close picker after selection
+  // (per spec's "pick an option" algorithm)
+  if (aNotify && IsCustomizableSelect() && IsPickerOpen() &&
+      oldSelectedIndex != mSelectedIndex) {
+    SetPickerOpen(false);
+  }
 }
 
 bool HTMLSelectElement::IsOptionSelectedByIndex(int32_t aIndex) const {
@@ -1546,6 +1602,58 @@ void HTMLSelectElement::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
   }
 
   nsGenericHTMLFormControlElementWithState::GetEventTargetParent(aVisitor);
+}
+
+nsresult HTMLSelectElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
+  nsresult rv =
+      nsGenericHTMLFormControlElementWithState::PostHandleEvent(aVisitor);
+
+  if (!IsCustomizableSelect()) {
+    return rv;
+  }
+
+  if (!aVisitor.mPresContext) {
+    return rv;
+  }
+
+  if (aVisitor.mEventStatus == nsEventStatus_eConsumeNoDefault) {
+    return rv;
+  }
+
+  WidgetEvent* widgetEvent = aVisitor.mEvent;
+  if (!widgetEvent) {
+    return rv;
+  }
+
+  // Handle mouse click to toggle picker
+  WidgetMouseEvent* mouseEvent = widgetEvent->AsMouseEvent();
+  if (mouseEvent && mouseEvent->IsLeftClickEvent() && !IsDisabled()) {
+    SetPickerOpen(!IsPickerOpen());
+    return NS_OK;
+  }
+
+  // Handle keyboard events to open picker
+  if (widgetEvent->mMessage == eKeyDown) {
+    WidgetKeyboardEvent* keyEvent = widgetEvent->AsKeyboardEvent();
+    if (keyEvent && !IsDisabled() && !IsPickerOpen()) {
+      uint32_t keyCode = keyEvent->mKeyCode;
+      // Open on Space, Enter (non-Mac), or arrow keys
+      bool shouldOpen = (keyCode == NS_VK_SPACE) ||
+                        (keyCode == NS_VK_DOWN) || (keyCode == NS_VK_UP) ||
+#ifndef XP_MACOSX
+                        (keyCode == NS_VK_RETURN) ||
+#endif
+                        (keyCode == NS_VK_LEFT) || (keyCode == NS_VK_RIGHT);
+
+      if (shouldOpen) {
+        SetPickerOpen(true);
+        widgetEvent->PreventDefault();
+        return NS_OK;
+      }
+    }
+  }
+
+  return rv;
 }
 
 void HTMLSelectElement::UpdateValidityElementStates(bool aNotify) {

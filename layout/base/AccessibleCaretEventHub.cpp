@@ -434,9 +434,7 @@ nsEventStatus AccessibleCaretEventHub::HandleMouseEvent(
   nsPoint point = GetMouseEventPosition(aEvent);
 
   if (aEvent->mMessage == eMouseDown || aEvent->mMessage == eMouseUp ||
-      aEvent->mMessage == ePointerClick ||
-      aEvent->mMessage == eMouseDoubleClick ||
-      aEvent->mMessage == eMouseLongTap) {
+      aEvent->mMessage == ePointerClick || aEvent->mMessage == eMouseLongTap) {
     // Don't reset the source on mouse movement since that can
     // happen anytime, even randomly during a touch sequence.
     mManager->SetLastInputSource(aEvent->mInputSource);
@@ -444,6 +442,16 @@ nsEventStatus AccessibleCaretEventHub::HandleMouseEvent(
 
   switch (aEvent->mMessage) {
     case eMouseDown:
+      // Any eMouseDown means APZ has resolved the gesture. Clear the flag
+      // that prevents PressCaret during the double-tap window.
+      mManager->SetCaretPressAllowed(true);
+      if (aEvent->mClickCount >= 2) {
+        // Don't process multi-click mousedowns through the state machine. Let
+        // the event reach nsIFrame::HandleMultiplePress, which handles word
+        // (double-click) and line/paragraph (triple-click) selection. The
+        // accessible carets will be updated via OnSelectionChanged.
+        break;
+      }
       AC_LOGV("Before eMouseDown, state: %s", mState->Name());
       rv = mState->OnPress(this, point, id, eMouseEventClass);
       AC_LOGV("After eMouseDown, state: %s, consume: %d", mState->Name(), rv);

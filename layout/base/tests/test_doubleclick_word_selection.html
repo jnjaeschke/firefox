@@ -1,0 +1,67 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Test double-click word selection in editable elements (bug 1951304)</title>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
+  <link rel="stylesheet" href="/tests/SimpleTest/test.css"/>
+</head>
+<body>
+<!-- Use long first words so that a small x offset always lands within them. -->
+<input id="input" value="basketball court">
+<br>
+<textarea id="textarea">strawberry field</textarea>
+<br>
+<div id="contenteditable" contenteditable="true">pineapple juice</div>
+<br>
+<div id="plaintext" contenteditable="plaintext-only">watermelon seed</div>
+<pre id="test">
+<script class="testbody">
+function runTests() {
+  // Double-click at x=10 should always land within the long first word.
+
+  let input = document.getElementById("input");
+  input.focus();
+  synthesizeMouse(input, 10, 10, { clickCount: 2 });
+  isnot(input.selectionStart, input.selectionEnd,
+        "input: selection should not be collapsed after double-click");
+  let inputSelected = input.value.substring(input.selectionStart, input.selectionEnd);
+  is(inputSelected, "basketball", "input: double-click should select first word");
+
+  let textarea = document.getElementById("textarea");
+  textarea.focus();
+  synthesizeMouse(textarea, 10, 10, { clickCount: 2 });
+  isnot(textarea.selectionStart, textarea.selectionEnd,
+        "textarea: selection should not be collapsed after double-click");
+  let textareaSelected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+  is(textareaSelected, "strawberry", "textarea: double-click should select first word");
+
+  let ce = document.getElementById("contenteditable");
+  synthesizeMouse(ce, 10, 10, { clickCount: 2 });
+  is(window.getSelection().toString(), "pineapple",
+     "contenteditable: double-click should select first word");
+
+  let pt = document.getElementById("plaintext");
+  synthesizeMouse(pt, 10, 10, { clickCount: 2 });
+  is(window.getSelection().toString(), "watermelon",
+     "plaintext-only: double-click should select first word");
+
+  SimpleTest.finish();
+}
+
+window.onload = function() {
+  SpecialPowers.pushPrefEnv({
+    set: [
+      ["layout.word_select.eat_space_to_next_word", false],
+      ["layout.accessiblecaret.enabled", true],
+      ["layout.accessiblecaret.hide_carets_for_mouse_input", false],
+    ],
+  }).then(() => {
+    setTimeout(runTests, 0);
+  });
+};
+SimpleTest.waitForExplicitFinish();
+</script>
+</pre>
+</body>
+</html>

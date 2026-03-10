@@ -237,6 +237,8 @@ support-files = ["bug1226904.html"]
 
 ["test_bug1278021.html"]
 
+["test_doubleclick_word_selection.html"]
+
 ["test_bug1448730.html"]
 support-files = ["bug1448730.html"]
 skip-if = [

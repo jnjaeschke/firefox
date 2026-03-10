@@ -3446,8 +3446,13 @@ nsEventStatus AsyncPanZoomController::OnDoubleTap(
                                         rootContentApzc->GetScrollableRect(),
                                         transformToRootContentApzc}));
       }
+      return nsEventStatus_eConsumeNoDefault;
     }
-    return nsEventStatus_eConsumeNoDefault;
+    // Double-tap zoom is not allowed (e.g. touch-action prevents it). Fall
+    // back to dispatching a second-tap so that content can handle it as a
+    // double-click (e.g. for word selection in editable elements).
+    return GenerateSingleTap(TapType::eSecondTap, aEvent.mPoint,
+                             aEvent.modifiers);
   }
   return nsEventStatus_eIgnore;
 }

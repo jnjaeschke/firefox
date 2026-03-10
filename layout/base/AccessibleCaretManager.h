@@ -60,6 +60,12 @@ class AccessibleCaretManager {
   // The aPoint in the following public methods should be relative to root
   // frame.
 
+  // Allow or disallow pressing the caret. Used by the event hub to prevent
+  // caret presses during the double-tap detection window.
+  virtual void SetCaretPressAllowed(bool aAllowed) {
+    mCaretPressAllowed = aAllowed;
+  }
+
   // Press caret on the given point. Return NS_OK if the point is actually on
   // one of the carets.
   MOZ_CAN_RUN_SCRIPT
@@ -415,6 +421,13 @@ class AccessibleCaretManager {
   };
 
   Carets mCarets;
+
+  // When true, PressCaret is temporarily blocked. This is set when a touch
+  // single-tap places a cursor in editable content, creating a window where a
+  // second tap should trigger word selection (double-tap) rather than pressing
+  // the caret (which would show the magnifier). Cleared when the next
+  // eMouseDown arrives from APZ, resolving the gesture.
+  bool mCaretPressAllowed = true;
 
   // The caret being pressed or dragged.
   AccessibleCaret* mActiveCaret = nullptr;

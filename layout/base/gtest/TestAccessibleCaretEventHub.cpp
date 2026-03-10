@@ -128,6 +128,13 @@ class AccessibleCaretEventHubTester : public ::testing::Test {
     return CreateMouseEvent(eMouseLongTap, aX, aY);
   }
 
+  static UniquePtr<WidgetEvent> CreateMousePressEventWithClickCount(
+      nscoord aX, nscoord aY, uint32_t aClickCount) {
+    auto event = CreateMouseEvent(eMouseDown, aX, aY);
+    event->AsMouseEvent()->mClickCount = aClickCount;
+    return event;
+  }
+
   static UniquePtr<WidgetEvent> CreateTouchEvent(EventMessage aMessage,
                                                  nscoord aX, nscoord aY) {
     auto event = MakeUnique<WidgetTouchEvent>(true, aMessage, nullptr);
@@ -778,6 +785,49 @@ MOZ_CAN_RUN_SCRIPT_FOR_DEFINITION {
 
   hub->NotifyBlur(true);
   EXPECT_EQ(hub->GetState(), MockAccessibleCaretEventHub::NoActionState());
+}
+
+// Bug 1951304: Multi-click mousedowns (double-click, triple-click) must not be
+// processed by the hub's state machine. They should pass through so that
+// nsIFrame::HandleMultiplePress can handle word/line/paragraph selection.
+// The accessible carets will be updated via OnSelectionChanged.
+
+TEST_F(AccessibleCaretEventHubTester, TestMultiClickMouseDownNotConsumed)
+MOZ_CAN_RUN_SCRIPT_FOR_DEFINITION {
+  // PressCaret should only be called once (for the first single-click press).
+  // The multi-click press must skip OnPress entirely.
+  EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
+      .WillOnce(Return(NS_OK));
+  EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), ReleaseCaret())
+      .WillOnce(Return(NS_OK));
+  EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), TapCaret(_))
+      .WillOnce(Return(NS_OK));
+
+  // First click (single): processed normally, presses caret.
+  HandleEventAndCheckState(CreateMousePressEvent(0, 0),
+                           MockAccessibleCaretEventHub::PressCaretState(),
+                           nsEventStatus_eConsumeNoDefault);
+
+  HandleEventAndCheckState(CreateMouseReleaseEvent(0, 0),
+                           MockAccessibleCaretEventHub::NoActionState(),
+                           nsEventStatus_eConsumeNoDefault);
+
+  // Second click (double): mClickCount=2, must NOT call PressCaret.
+  // The event is not consumed, allowing HandleMultiplePress to fire.
+  HandleEventAndCheckState(CreateMousePressEventWithClickCount(0, 0, 2),
+                           MockAccessibleCaretEventHub::NoActionState(),
+                           nsEventStatus_eIgnore);
+}
+
+TEST_F(AccessibleCaretEventHubTester, TestTripleClickMouseDownNotConsumed)
+MOZ_CAN_RUN_SCRIPT_FOR_DEFINITION {
+  // No PressCaret call expected at all — only a triple-click press arrives.
+  EXPECT_CALL(*mHub->GetMockAccessibleCaretManager(), PressCaret(_, _))
+      .Times(0);
+
+  HandleEventAndCheckState(CreateMousePressEventWithClickCount(0, 0, 3),
+                           MockAccessibleCaretEventHub::NoActionState(),
+                           nsEventStatus_eIgnore);
 }
 
 }  // namespace mozilla

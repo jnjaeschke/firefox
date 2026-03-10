@@ -113,6 +113,17 @@ textarea {
   word-wrap: break-word;
 }
 
+/* Disable double-tap-to-zoom on editable elements so that a double-tap can
+   trigger word selection instead (bug 1951304). touch-action: manipulation
+   preserves panning and pinch-zoom. */
+input,
+textarea,
+[contenteditable=""],
+[contenteditable="true"],
+[contenteditable="plaintext-only"] {
+  touch-action: manipulation;
+}
+
 /* A few properties that we don't want to inherit by default: */
 input,
 textarea,

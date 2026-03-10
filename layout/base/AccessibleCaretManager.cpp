@@ -112,6 +112,10 @@ nsresult AccessibleCaretManager::OnSelectionChanged(Document* aDoc,
     return NS_OK;
   }
 
+  // Any selection change clears the double-tap caret-press block. The specific
+  // case that re-enables it (touch cursor in editable) is handled below.
+  mCaretPressAllowed = true;
+
   // eSetSelection events from the Fennec widget IME can be generated
   // by autoSuggest / autoCorrect composition changes, or by TYPE_REPLACE_TEXT
   // actions, either positioning cursor for text insert, or selecting
@@ -172,6 +176,18 @@ nsresult AccessibleCaretManager::OnSelectionChanged(Document* aDoc,
   }
 
   UpdateCarets();
+
+  // After a touch single-tap places a cursor in editable content, block
+  // PressCaret until the next eMouseDown resolves the gesture. This prevents
+  // the second tap of a double-tap from pressing the caret (showing the
+  // magnifier) instead of allowing word selection.
+  if (mLastInputSource == MouseEvent_Binding::MOZ_SOURCE_TOUCH &&
+      GetCaretMode() == CaretMode::Cursor) {
+    mCaretPressAllowed = false;
+  } else {
+    mCaretPressAllowed = true;
+  }
+
   return NS_OK;
 }
 
@@ -504,6 +520,10 @@ void AccessibleCaretManager::ProvideHapticFeedback(
 
 nsresult AccessibleCaretManager::PressCaret(const nsPoint& aPoint,
                                             EventClassID aEventClass) {
+  if (!mCaretPressAllowed) {
+    return NS_ERROR_FAILURE;
+  }
+
   nsresult rv = NS_ERROR_FAILURE;
 
   MOZ_ASSERT(aEventClass == eMouseEventClass || aEventClass == eTouchEventClass,

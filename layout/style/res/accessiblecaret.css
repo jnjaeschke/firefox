@@ -8,6 +8,10 @@
 
   position: absolute;
   z-index: 2147483647;
+
+  /* Disable double-tap-to-zoom so that double-tap can trigger word selection
+     instead of zooming when tapping near the caret handle (bug 1951304). */
+  touch-action: manipulation;
 }
 
 :host(.none) {

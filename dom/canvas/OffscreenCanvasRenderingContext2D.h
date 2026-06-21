@@ -21,10 +21,7 @@ class OffscreenCanvasRenderingContext2D final
   NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_INHERITED(
       OffscreenCanvasRenderingContext2D, CanvasRenderingContext2D)
 
-  explicit OffscreenCanvasRenderingContext2D(
-      layers::LayersBackend aCompositorBackend);
-
-  nsIGlobalObject* GetParentObject() const;
+  using CanvasRenderingContext2D::CanvasRenderingContext2D;
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -38,14 +35,8 @@ class OffscreenCanvasRenderingContext2D final
       nsIDocShell* aShell, NotNull<gfx::DrawTarget*> aTarget) override;
 
  private:
-  void AddZoneWaitingForGC() override;
-  void AddAssociatedMemory() override;
-  void RemoveAssociatedMemory() override;
-
   ~OffscreenCanvasRenderingContext2D() override;
 };
-
-size_t BindingJSObjectMallocBytes(OffscreenCanvasRenderingContext2D* aContext);
 
 }  // namespace mozilla::dom
 

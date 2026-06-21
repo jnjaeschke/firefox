@@ -4,7 +4,6 @@
 
 #include "OffscreenCanvasRenderingContext2D.h"
 
-#include "mozilla/CycleCollectedJSRuntime.h"
 #include "mozilla/dom/OffscreenCanvas.h"
 #include "mozilla/dom/OffscreenCanvasRenderingContext2DBinding.h"
 
@@ -15,9 +14,8 @@ namespace mozilla::dom {
 NS_IMPL_CYCLE_COLLECTION_INHERITED(OffscreenCanvasRenderingContext2D,
                                    CanvasRenderingContext2D)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(OffscreenCanvasRenderingContext2D)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-NS_INTERFACE_MAP_END_INHERITING(CanvasRenderingContext2D)
+NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(
+    OffscreenCanvasRenderingContext2D, CanvasRenderingContext2D)
 
 // Need to use NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS_INHERITED
 // and dummy trace since we're missing some _SKIPPABLE_ macros without
@@ -38,15 +36,6 @@ NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_BEGIN(OffscreenCanvasRenderingContext2D)
   return tmp->HasKnownLiveWrapper();
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_THIS_END
 
-NS_IMPL_ADDREF_INHERITED(OffscreenCanvasRenderingContext2D,
-                         CanvasRenderingContext2D)
-NS_IMPL_RELEASE_INHERITED(OffscreenCanvasRenderingContext2D,
-                          CanvasRenderingContext2D)
-
-OffscreenCanvasRenderingContext2D::OffscreenCanvasRenderingContext2D(
-    layers::LayersBackend aCompositorBackend)
-    : CanvasRenderingContext2D(aCompositorBackend) {}
-
 OffscreenCanvasRenderingContext2D::~OffscreenCanvasRenderingContext2D() =
     default;
 
@@ -54,10 +43,6 @@ JSObject* OffscreenCanvasRenderingContext2D::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return OffscreenCanvasRenderingContext2D_Binding::Wrap(aCx, this,
                                                          aGivenProto);
-}
-
-nsIGlobalObject* OffscreenCanvasRenderingContext2D::GetParentObject() const {
-  return mOffscreenCanvas->GetRelevantGlobal();
 }
 
 NS_IMETHODIMP OffscreenCanvasRenderingContext2D::InitializeWithDrawTarget(
@@ -71,46 +56,6 @@ void OffscreenCanvasRenderingContext2D::Commit(ErrorResult& aRv) {
   }
 
   mOffscreenCanvas->CommitFrameToCompositor();
-}
-
-void OffscreenCanvasRenderingContext2D::AddZoneWaitingForGC() {
-  JSObject* wrapper = GetWrapperPreserveColor();
-  if (wrapper) {
-    CycleCollectedJSRuntime::Get()->AddZoneWaitingForGC(
-        JS::GetObjectZone(wrapper));
-  }
-}
-
-void OffscreenCanvasRenderingContext2D::AddAssociatedMemory() {
-  JSObject* wrapper = GetWrapperMaybeDead();
-  if (wrapper) {
-    JS::AddAssociatedMemory(wrapper, BindingJSObjectMallocBytes(this),
-                            JS::MemoryUse::DOMBinding);
-  }
-}
-
-void OffscreenCanvasRenderingContext2D::RemoveAssociatedMemory() {
-  JSObject* wrapper = GetWrapperMaybeDead();
-  if (wrapper) {
-    JS::RemoveAssociatedMemory(wrapper, BindingJSObjectMallocBytes(this),
-                               JS::MemoryUse::DOMBinding);
-  }
-}
-
-size_t BindingJSObjectMallocBytes(OffscreenCanvasRenderingContext2D* aContext) {
-  gfx::IntSize size = aContext->GetSize();
-
-  // TODO: Bug 1552137: No memory will be allocated if either dimension is
-  // greater than gfxPrefs::gfx_canvas_max_size(). We should check this here
-  // too.
-
-  CheckedInt<uint32_t> bytes =
-      CheckedInt<uint32_t>(size.width) * size.height * 4;
-  if (!bytes.isValid()) {
-    return 0;
-  }
-
-  return bytes.value();
 }
 
 }  // namespace mozilla::dom

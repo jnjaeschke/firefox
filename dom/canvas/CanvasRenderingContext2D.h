@@ -1257,9 +1257,9 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   // Flags used by the fingerprinting detection heuristic
   CanvasFeatureUsage mFeatureUsage = CanvasFeatureUsage::None;
 
-  virtual void AddZoneWaitingForGC();
-  virtual void AddAssociatedMemory();
-  virtual void RemoveAssociatedMemory();
+  void AddZoneWaitingForGC();
+  void AddAssociatedMemory();
+  void RemoveAssociatedMemory();
 };
 
 size_t BindingJSObjectMallocBytes(CanvasRenderingContext2D* aContext);

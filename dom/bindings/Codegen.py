@@ -12841,7 +12841,7 @@ def getUnionAccessorSignatureType(type, descriptorProvider):
         return CGWrapper(typeName, post=" const &")
 
     if type.isJSString():
-        raise TypeError("JSString not supported in unions")
+        return CGGeneric("JS::Handle<JSString*>")
 
     if type.isDOMString() or type.isUSVString():
         return CGGeneric("const nsAString&")
@@ -12859,10 +12859,10 @@ def getUnionAccessorSignatureType(type, descriptorProvider):
         return CGGeneric("%s&" % type.unroll().callback.identifier.name)
 
     if type.isAny():
-        return CGGeneric("JS::Value")
+        return CGGeneric("JS::Handle<JS::Value>")
 
     if type.isObject():
-        return CGGeneric("JSObject*")
+        return CGGeneric("JS::Handle<JSObject*>")
 
     if type.isDictionary():
         return CGGeneric("const %s&" % type.inner.identifier.name)

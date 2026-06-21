@@ -43,3 +43,20 @@ size_t XPCStringConvert::LiteralExternalString::sizeOfBuffer(
   // This string's buffer is not heap-allocated, so its malloc size is 0.
   return 0;
 }
+
+bool xpc::NonVoidUTF8StringToJSString(JSContext* cx, const nsACString& utf8,
+                                      JS::MutableHandle<JSString*> vp) {
+  uint32_t length = utf8.Length();
+
+  if (utf8.IsLiteral()) {
+    return XPCStringConvert::UTF8StringLiteralToJSString(
+        cx, JS::UTF8Chars(utf8.BeginReading(), length), vp);
+  }
+
+  if (auto* buf = utf8.GetStringBuffer()) {
+    return XPCStringConvert::UTF8StringBufferToJSString(cx, buf, length, vp);
+  }
+
+  vp.set(JS_NewStringCopyUTF8N(cx, JS::UTF8Chars(utf8.BeginReading(), length)));
+  return !!vp;
+}

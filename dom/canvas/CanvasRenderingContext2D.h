@@ -53,8 +53,8 @@ using CanvasImageSource =
     HTMLImageElementOrSVGImageElementOrHTMLCanvasElementOrHTMLVideoElementOrOffscreenCanvasOrImageBitmapOrVideoFrame;
 class ImageBitmap;
 class ImageData;
-class UTF8StringOrCanvasGradientOrCanvasPattern;
-class OwningUTF8StringOrCanvasGradientOrCanvasPattern;
+class JSStringOrCanvasGradientOrCanvasPattern;
+class OwningJSStringOrCanvasGradientOrCanvasPattern;
 class TextMetrics;
 class CanvasGradient;
 class CanvasPath;
@@ -150,7 +150,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   }
 
   enum class ResolveCurrentColor : bool { No, Yes };
-  Maybe<nscolor> ParseColor(const nsACString&,
+  Maybe<nscolor> ParseColor(JSContext*, JS::Handle<JSString*>,
                             ResolveCurrentColor = ResolveCurrentColor::Yes);
 
   void GetGlobalCompositeOperation(nsAString& aOp,
@@ -158,20 +158,24 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   void SetGlobalCompositeOperation(const nsAString& aOp,
                                    mozilla::ErrorResult& aError);
 
-  void GetStrokeStyle(OwningUTF8StringOrCanvasGradientOrCanvasPattern& aValue) {
-    GetStyleAsUnion(aValue, Style::STROKE);
+  void GetStrokeStyle(JSContext* aCx,
+                      OwningJSStringOrCanvasGradientOrCanvasPattern& aValue) {
+    GetStyleAsUnion(aCx, aValue, Style::STROKE);
   }
 
-  void SetStrokeStyle(const UTF8StringOrCanvasGradientOrCanvasPattern& aValue) {
-    SetStyleFromUnion(aValue, Style::STROKE);
+  void SetStrokeStyle(JSContext* aCx,
+                      const JSStringOrCanvasGradientOrCanvasPattern& aValue) {
+    SetStyleFromUnion(aCx, aValue, Style::STROKE);
   }
 
-  void GetFillStyle(OwningUTF8StringOrCanvasGradientOrCanvasPattern& aValue) {
-    GetStyleAsUnion(aValue, Style::FILL);
+  void GetFillStyle(JSContext* aCx,
+                    OwningJSStringOrCanvasGradientOrCanvasPattern& aValue) {
+    GetStyleAsUnion(aCx, aValue, Style::FILL);
   }
 
-  void SetFillStyle(const UTF8StringOrCanvasGradientOrCanvasPattern& aValue) {
-    SetStyleFromUnion(aValue, Style::FILL);
+  void SetFillStyle(JSContext* aCx,
+                    const JSStringOrCanvasGradientOrCanvasPattern& aValue) {
+    SetStyleFromUnion(aCx, aValue, Style::FILL);
   }
 
   already_AddRefed<CanvasGradient> CreateLinearGradient(double aX0, double aY0,
@@ -206,13 +210,14 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     }
   }
 
-  void GetShadowColor(nsACString& aShadowColor) {
-    StyleColorToString(CurrentState().shadowColor, aShadowColor);
+  void GetShadowColor(JSContext* aCx,
+                      JS::MutableHandle<JSString*> aShadowColor) {
+    StyleColorToString(aCx, CurrentState().shadowColor, aShadowColor);
   }
 
   void GetFilter(nsACString& aFilter) { aFilter = CurrentState().filterString; }
 
-  void SetShadowColor(const nsACString& aShadowColor);
+  void SetShadowColor(JSContext* aCx, JS::Handle<JSString*> aShadowColor);
   void SetFilter(const nsACString& aFilter, mozilla::ErrorResult& aError);
   void ClearRect(double aX, double aY, double aW, double aH);
   void FillRect(double aX, double aY, double aW, double aH);
@@ -479,8 +484,9 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     mContextProperties = aValue;
   }
 
-  void DrawWindow(nsGlobalWindowInner& aWindow, double aX, double aY, double aW,
-                  double aH, const nsACString& aBgColor, uint32_t aFlags,
+  void DrawWindow(JSContext* aCx, nsGlobalWindowInner& aWindow, double aX,
+                  double aY, double aW, double aH,
+                  JS::Handle<JSString*> aBgColor, uint32_t aFlags,
                   nsIPrincipal& aSubjectPrincipal,
                   mozilla::ErrorResult& aError);
 
@@ -556,7 +562,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   // nsISupports interface + CC
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
 
-  NS_DECL_CYCLE_COLLECTION_SKIPPABLE_WRAPPERCACHE_CLASS(
+  NS_DECL_CYCLE_COLLECTION_SKIPPABLE_SCRIPT_HOLDER_CLASS(
       CanvasRenderingContext2D)
 
   enum class CanvasMultiGetterType : uint8_t {
@@ -665,10 +671,11 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   void SetTransformInternal(const mozilla::gfx::Matrix& aTransform);
 
   // Some helpers.  Doesn't modify a color on failure.
-  void SetStyleFromUnion(
-      const UTF8StringOrCanvasGradientOrCanvasPattern& aValue,
-      Style aWhichStyle);
-  void SetStyleFromString(const nsACString& aStr, Style aWhichStyle);
+  void SetStyleFromUnion(JSContext* aCx,
+                         const JSStringOrCanvasGradientOrCanvasPattern& aValue,
+                         Style aWhichStyle);
+  void SetStyleFromString(JSContext* aCx, JS::Handle<JSString*> aStr,
+                          Style aWhichStyle);
 
   void SetStyleFromGradient(CanvasGradient& aGradient, Style aWhichStyle) {
     CurrentState().SetGradientStyle(aWhichStyle, &aGradient);
@@ -678,10 +685,12 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     CurrentState().SetPatternStyle(aWhichStyle, &aPattern);
   }
 
-  void GetStyleAsUnion(OwningUTF8StringOrCanvasGradientOrCanvasPattern& aValue,
+  void GetStyleAsUnion(JSContext* aCx,
+                       OwningJSStringOrCanvasGradientOrCanvasPattern& aValue,
                        Style aWhichStyle);
 
-  static void StyleColorToString(const nscolor& aColor, nsACString& aStr);
+  static bool StyleColorToString(JSContext* aCx, const nscolor& aColor,
+                                 JS::MutableHandle<JSString*> aStr);
 
   // Returns whether a filter was successfully parsed.
   bool ParseFilter(const nsACString& aString,
@@ -1216,22 +1225,28 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
   }
 
   struct ColorStyleCacheEntry {
-    nsCString mKey;
+    JS::Heap<jsid> mKey;
     Maybe<nscolor> mColor;
     bool mWasCurrentColor = false;
   };
+  friend void ImplCycleCollectionTrace(
+      const TraceCallbacks& aCallbacks,
+      CanvasRenderingContext2D::ColorStyleCacheEntry& aField, const char* aName,
+      void* aClosure) {
+    ImplCycleCollectionTrace(aCallbacks, aField.mKey, aName, aClosure);
+  }
+
   class ColorStyleCache
-      : public MruCache<nsACString, ColorStyleCacheEntry, ColorStyleCache> {
+      : public MruCache<jsid, ColorStyleCacheEntry, ColorStyleCache> {
    public:
-    static HashNumber Hash(const nsACString& aKey) { return HashString(aKey); }
-    static bool Match(const nsACString& aKey,
-                      const ColorStyleCacheEntry& aVal) {
+    static HashNumber Hash(jsid aKey) { return js::HashAtom(aKey.toAtom()); }
+    static bool Match(jsid aKey, const ColorStyleCacheEntry& aVal) {
       return aVal.mKey == aKey;
     }
   };
   ColorStyleCache mColorStyleCache;
 
-  ColorStyleCacheEntry ParseColorSlow(const nsACString&);
+  ColorStyleCacheEntry ParseColorSlow(JSContext*, jsid);
 
   mozilla::gfx::PaletteCache mPaletteCache;
 

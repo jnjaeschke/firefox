@@ -136,7 +136,7 @@ interface CanvasRenderingContext2D {
    */
   [Throws, NeedsSubjectPrincipal, Func="CanvasUtils::HasDrawWindowPrivilege"]
   undefined drawWindow(Window window, double x, double y, double w, double h,
-                       UTF8String bgColor, optional unsigned long flags = 0);
+                       JSString bgColor, optional unsigned long flags = 0);
 
   /**
    * This causes a context that is currently using a hardware-accelerated
@@ -205,8 +205,8 @@ interface mixin CanvasImageSmoothing {
 
 interface mixin CanvasFillStrokeStyles {
   // colors and styles (see also the CanvasPathDrawingStyles interface)
-  attribute (UTF8String or CanvasGradient or CanvasPattern) strokeStyle; // (default black)
-  attribute (UTF8String or CanvasGradient or CanvasPattern) fillStyle; // (default black)
+  attribute (JSString or CanvasGradient or CanvasPattern) strokeStyle; // (default black)
+  attribute (JSString or CanvasGradient or CanvasPattern) fillStyle; // (default black)
   [NewObject]
   CanvasGradient createLinearGradient(double x0, double y0, double x1, double y1);
   [NewObject, Throws]
@@ -224,7 +224,7 @@ interface mixin CanvasShadowStyles {
   attribute double shadowOffsetY; // (default 0)
   [LenientFloat]
   attribute double shadowBlur; // (default 0)
-  attribute UTF8String shadowColor; // (default transparent black)
+  attribute JSString shadowColor; // (default transparent black)
 };
 
 interface mixin CanvasFilters {
@@ -370,7 +370,7 @@ interface CanvasGradient {
   // opaque object
   [Throws]
   // addColorStop should take a double
-  undefined addColorStop(float offset, UTF8String color);
+  undefined addColorStop(float offset, JSString color);
 };
 
 [Exposed=(Window,Worker)]

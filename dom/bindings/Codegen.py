@@ -7030,11 +7030,18 @@ def getJSToNativeConversionInfo(
         if type.nullable():
             raise TypeError("Nullable JSString not supported")
 
-        declArgs = "cx"
-        if isMember:
+        if isMember == "OwningUnion":
+            # Traced by the union tracer; use raw pointer.
+            declType = "JSString*"
+            declArgs = None
+        elif isMember == "Union":
+            declType = "JS::Rooted<JSString*>"
+            declArgs = "cx"
+        elif isMember:
             raise TypeError("JSString not supported as member")
         else:
             declType = "JS::Rooted<JSString*>"
+            declArgs = "cx"
 
         if isOptional:
             raise TypeError("JSString not supported as optional")
@@ -13499,7 +13506,7 @@ class CGUnionStruct(CGThing):
                 # Provide a SetStringLiteral() method to support string defaults.
                 if t.isByteString() or t.isUTF8String():
                     charType = "const nsCString::char_type"
-                elif t.isString():
+                elif t.isString() and not t.isJSString():
                     charType = "const nsString::char_type"
                 else:
                     charType = None
@@ -13658,6 +13665,16 @@ class CGUnionStruct(CGThing):
                             "e" + vars["name"],
                             CGGeneric(
                                 "TraceRecord(trc, mValue.m%s.Value());\n" % vars["name"]
+                            ),
+                        )
+                    )
+                elif t.isJSString():
+                    traceCases.append(
+                        CGCase(
+                            "e" + vars["name"],
+                            CGGeneric(
+                                'JS::TraceRoot(trc, &mValue.m%s.Value(), "%s");\n'
+                                % (vars["name"], "mValue.m" + vars["name"])
                             ),
                         )
                     )

@@ -245,15 +245,11 @@ class XPCStringConvert {
     return true;
   }
 
-  static MOZ_ALWAYS_INLINE bool UTF8StringBufferToJSVal(
+  static MOZ_ALWAYS_INLINE bool UTF8StringBufferToJSString(
       JSContext* cx, mozilla::StringBuffer* buf, uint32_t length,
-      JS::MutableHandle<JS::Value> rval) {
-    JSString* str = JS::NewStringFromKnownLiveUTF8Buffer(cx, buf, length);
-    if (!str) {
-      return false;
-    }
-    rval.setString(str);
-    return true;
+      JS::MutableHandle<JSString*> rval) {
+    rval.set(JS::NewStringFromKnownLiveUTF8Buffer(cx, buf, length));
+    return !!rval;
   }
 
   static inline bool StringLiteralToJSVal(JSContext* cx,
@@ -284,17 +280,13 @@ class XPCStringConvert {
     return true;
   }
 
-  static inline bool UTF8StringLiteralToJSVal(
+  static inline bool UTF8StringLiteralToJSString(
       JSContext* cx, const JS::UTF8Chars& chars,
-      JS::MutableHandle<JS::Value> rval) {
+      JS::MutableHandle<JSString*> rval) {
     bool ignored;
-    JSString* str = JS_NewMaybeExternalStringUTF8(
-        cx, chars, &sLiteralExternalString, &ignored);
-    if (!str) {
-      return false;
-    }
-    rval.setString(str);
-    return true;
+    rval.set(JS_NewMaybeExternalStringUTF8(cx, chars, &sLiteralExternalString,
+                                           &ignored));
+    return !!rval;
   }
 
  private:
@@ -471,24 +463,17 @@ bool Base64Decode(JSContext* cx, JS::Handle<JS::Value> val,
   return true;
 }
 
-// As above, but with utf-8
+[[nodiscard]] bool NonVoidUTF8StringToJSString(JSContext* cx,
+                                               const nsACString& str,
+                                               JS::MutableHandle<JSString*> rval);
 [[nodiscard]] inline bool NonVoidUTF8StringToJsval(JSContext* cx,
-                                                   const nsACString& utf8,
+                                                   const nsACString& str,
                                                    JS::MutableHandleValue vp) {
-  uint32_t length = utf8.Length();
-  if (auto* buf = utf8.GetStringBuffer()) {
-    return XPCStringConvert::UTF8StringBufferToJSVal(cx, buf, length, vp);
-  }
-  if (utf8.IsLiteral()) {
-    return XPCStringConvert::UTF8StringLiteralToJSVal(
-        cx, JS::UTF8Chars(utf8.BeginReading(), length), vp);
-  }
-  JSString* str =
-      JS_NewStringCopyUTF8N(cx, JS::UTF8Chars(utf8.BeginReading(), length));
-  if (!str) {
+  JS::Rooted<JSString*> rstr(cx);
+  if (!NonVoidUTF8StringToJSString(cx, str, &rstr)) {
     return false;
   }
-  vp.setString(str);
+  vp.set(StringValue(rstr));
   return true;
 }
 

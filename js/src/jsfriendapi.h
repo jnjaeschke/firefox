@@ -5,6 +5,8 @@
 #ifndef jsfriendapi_h
 #define jsfriendapi_h
 
+#include "mozilla/HashFunctions.h"
+
 #include "jspubtd.h"
 
 #include "js/CallArgs.h"
@@ -683,6 +685,8 @@ extern JS_PUBLIC_API void RemapRemoteWindowProxies(
     JS::MutableHandleObject newTarget);
 
 extern JS_PUBLIC_API JS::Zone* GetObjectZoneFromAnyThread(const JSObject* obj);
+
+extern JS_PUBLIC_API mozilla::HashNumber HashAtom(JSAtom* key);
 
 } /* namespace js */
 

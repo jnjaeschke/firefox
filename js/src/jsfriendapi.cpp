@@ -796,3 +796,7 @@ bool JS::AddMozDisplayNamesConstructor(JSContext* cx, JS::HandleObject intl) {
 JS_PUBLIC_API JS::Zone* js::GetObjectZoneFromAnyThread(const JSObject* obj) {
   return MaybeForwarded(obj)->zoneFromAnyThread();
 }
+
+JS_PUBLIC_API mozilla::HashNumber js::HashAtom(JSAtom* key) {
+  return key->hash();
+}

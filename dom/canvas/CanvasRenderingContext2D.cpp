@@ -116,7 +116,9 @@
 #include "nsStyleUtil.h"
 #include "nsTArray.h"
 #include "nsWrapperCacheInlines.h"
+#include "nsJSUtils.h"
 #include "nsXULElement.h"
+#include "xpcpublic.h"
 
 #undef free  // apparently defined by some windows header, clashing with a
              // free() method in SkTypes.h
@@ -983,7 +985,8 @@ void CanvasPattern::SetTransform(const DOMMatrix2DInit& aInit,
   mTransform = Matrix(matrix2D);
 }
 
-void CanvasGradient::AddColorStop(float aOffset, const nsACString& aColorstr,
+void CanvasGradient::AddColorStop(JSContext* aCx, float aOffset,
+                                  JS::Handle<JSString*> aColorstr,
                                   ErrorResult& aRv) {
   if (aOffset < 0.0 || aOffset > 1.0) {
     return aRv.ThrowIndexSizeError("Offset out of 0-1.0 range");
@@ -994,7 +997,7 @@ void CanvasGradient::AddColorStop(float aOffset, const nsACString& aColorstr,
   }
 
   auto color = mContext->ParseColor(
-      aColorstr, CanvasRenderingContext2D::ResolveCurrentColor::No);
+      aCx, aColorstr, CanvasRenderingContext2D::ResolveCurrentColor::No);
   if (!color) {
     return aRv.ThrowSyntaxError("Invalid color");
   }
@@ -1014,7 +1017,7 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(CanvasPattern, mContext)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(CanvasRenderingContext2D)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(CanvasRenderingContext2D)
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_CLASS(CanvasRenderingContext2D)
+NS_IMPL_CYCLE_COLLECTION_CLASS(CanvasRenderingContext2D)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CanvasRenderingContext2D)
   tmp->RemoveShutdownObserver();
@@ -1044,6 +1047,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CanvasRenderingContext2D)
     }
     ImplCycleCollectionUnlink(tmp->mStyleStack[i].autoSVGFiltersObserver);
   }
+  tmp->mColorStyleCache.Clear();
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -1069,6 +1073,11 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(CanvasRenderingContext2D)
                                 "RAII SVG Filters Observer");
   }
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(CanvasRenderingContext2D)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mColorStyleCache)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTION_CAN_SKIP_BEGIN(CanvasRenderingContext2D)
   if (nsCCUncollectableMarker::sGeneration && tmp->HasKnownLiveWrapper()) {
@@ -1293,17 +1302,22 @@ void CanvasRenderingContext2D::GetDebugInfo(
 }
 
 CanvasRenderingContext2D::ColorStyleCacheEntry
-CanvasRenderingContext2D::ParseColorSlow(const nsACString& aString) {
-  ColorStyleCacheEntry result{nsCString(aString)};
+CanvasRenderingContext2D::ParseColorSlow(JSContext* aCx, jsid aId) {
+  ColorStyleCacheEntry result{JS::Heap<jsid>(aId)};
   Document* document = mCanvasElement ? mCanvasElement->OwnerDoc() : nullptr;
   css::Loader* loader = document ? document->GetExistingCSSLoader() : nullptr;
+
+  nsAutoJSCString str;
+  if (!str.init(aCx, aId)) {
+    return result;
+  }
 
   PresShell* presShell = GetPresShell();
   ServoStyleSet* set = presShell ? presShell->StyleSet() : nullptr;
   const StylePerDocumentStyleData* data = set ? set->RawData() : nullptr;
   bool wasCurrentColor = false;
   nscolor color;
-  if (ServoCSSParser::ComputeColor(data, NS_RGB(0, 0, 0), aString, &color,
+  if (ServoCSSParser::ComputeColor(data, NS_RGB(0, 0, 0), str, &color,
                                    &wasCurrentColor, loader)) {
     result.mWasCurrentColor = wasCurrentColor;
     result.mColor.emplace(color);
@@ -1313,10 +1327,16 @@ CanvasRenderingContext2D::ParseColorSlow(const nsACString& aString) {
 }
 
 Maybe<nscolor> CanvasRenderingContext2D::ParseColor(
-    const nsACString& aString, ResolveCurrentColor aResolveCurrentColor) {
-  auto entry = mColorStyleCache.Lookup(aString);
+    JSContext* aCx, JS::Handle<JSString*> aStr,
+    ResolveCurrentColor aResolveCurrentColor) {
+  JS::RootedId id(aCx);
+  if (!JS_StringToId(aCx, aStr, &id)) {
+    return Nothing();
+  }
+
+  auto entry = mColorStyleCache.Lookup(id);
   if (!entry) {
-    entry.Set(ParseColorSlow(aString));
+    entry.Set(ParseColorSlow(aCx, id));
   }
 
   const auto& data = entry.Data();
@@ -1462,11 +1482,9 @@ void CanvasRenderingContext2D::OnRemoteCanvasRestored() {
       }));
 }
 
-void CanvasRenderingContext2D::SetStyleFromString(const nsACString& aStr,
-                                                  Style aWhichStyle) {
-  MOZ_ASSERT(!aStr.IsVoid());
-
-  Maybe<nscolor> color = ParseColor(aStr);
+void CanvasRenderingContext2D::SetStyleFromString(
+    JSContext* aCx, JS::Handle<JSString*> aStr, Style aWhichStyle) {
+  Maybe<nscolor> color = ParseColor(aCx, aStr);
   if (!color) {
     return;
   }
@@ -1475,7 +1493,7 @@ void CanvasRenderingContext2D::SetStyleFromString(const nsACString& aStr,
 }
 
 void CanvasRenderingContext2D::GetStyleAsUnion(
-    OwningUTF8StringOrCanvasGradientOrCanvasPattern& aValue,
+    JSContext* aCx, OwningJSStringOrCanvasGradientOrCanvasPattern& aValue,
     Style aWhichStyle) {
   const ContextState& state = CurrentState();
   if (state.patternStyles[aWhichStyle]) {
@@ -1483,26 +1501,29 @@ void CanvasRenderingContext2D::GetStyleAsUnion(
   } else if (state.gradientStyles[aWhichStyle]) {
     aValue.SetAsCanvasGradient() = state.gradientStyles[aWhichStyle];
   } else {
-    StyleColorToString(state.colorStyles[aWhichStyle],
-                       aValue.SetAsUTF8String());
+    JS::Rooted<JSString*> str(aCx);
+    if (StyleColorToString(aCx, state.colorStyles[aWhichStyle], &str)) {
+      aValue.SetAsJSString() = str;
+    }
   }
 }
 
 // static
-void CanvasRenderingContext2D::StyleColorToString(const nscolor& aColor,
-                                                  nsACString& aStr) {
-  aStr.Truncate();
+bool CanvasRenderingContext2D::StyleColorToString(
+    JSContext* aCx, const nscolor& aColor, JS::MutableHandle<JSString*> aStr) {
+  nsCString str;
   // We can't reuse the normal CSS color stringification code,
   // because the spec calls for a different algorithm for canvas.
   if (NS_GET_A(aColor) == 255) {
-    aStr.AppendPrintf("#%02x%02x%02x", NS_GET_R(aColor), NS_GET_G(aColor),
-                      NS_GET_B(aColor));
+    str.AppendPrintf("#%02x%02x%02x", NS_GET_R(aColor), NS_GET_G(aColor),
+                     NS_GET_B(aColor));
   } else {
-    aStr.AppendPrintf("rgba(%d, %d, %d, ", NS_GET_R(aColor), NS_GET_G(aColor),
-                      NS_GET_B(aColor));
-    aStr.AppendFloat(nsStyleUtil::ColorComponentToFloat(NS_GET_A(aColor)));
-    aStr.Append(')');
+    str.AppendPrintf("rgba(%d, %d, %d, ", NS_GET_R(aColor), NS_GET_G(aColor),
+                     NS_GET_B(aColor));
+    str.AppendFloat(nsStyleUtil::ColorComponentToFloat(NS_GET_A(aColor)));
+    str.Append(')');
   }
+  return xpc::NonVoidUTF8StringToJSString(aCx, str, aStr);
 }
 
 nsresult CanvasRenderingContext2D::Redraw() {
@@ -2520,10 +2541,10 @@ void CanvasRenderingContext2D::ResetTransform(ErrorResult& aError) {
 //
 
 void CanvasRenderingContext2D::SetStyleFromUnion(
-    const UTF8StringOrCanvasGradientOrCanvasPattern& aValue,
+    JSContext* aCx, const JSStringOrCanvasGradientOrCanvasPattern& aValue,
     Style aWhichStyle) {
-  if (aValue.IsUTF8String()) {
-    SetStyleFromString(aValue.GetAsUTF8String(), aWhichStyle);
+  if (aValue.IsJSString()) {
+    SetStyleFromString(aCx, aValue.GetAsJSString(), aWhichStyle);
     return;
   }
 
@@ -2785,8 +2806,9 @@ already_AddRefed<CanvasPattern> CanvasRenderingContext2D::CreatePattern(
 //
 // shadows
 //
-void CanvasRenderingContext2D::SetShadowColor(const nsACString& aShadowColor) {
-  Maybe<nscolor> color = ParseColor(aShadowColor);
+void CanvasRenderingContext2D::SetShadowColor(JSContext* aCx,
+                                              JS::Handle<JSString*> aShadowColor) {
+  Maybe<nscolor> color = ParseColor(aCx, aShadowColor);
   if (!color) {
     return;
   }
@@ -6369,9 +6391,11 @@ void CanvasRenderingContext2D::GetGlobalCompositeOperation(
 #undef CANVAS_OP_TO_GFX_OP
 }
 
-void CanvasRenderingContext2D::DrawWindow(nsGlobalWindowInner& aWindow,
+void CanvasRenderingContext2D::DrawWindow(JSContext* aCx,
+                                          nsGlobalWindowInner& aWindow,
                                           double aX, double aY, double aW,
-                                          double aH, const nsACString& aBgColor,
+                                          double aH,
+                                          JS::Handle<JSString*> aBgColor,
                                           uint32_t aFlags,
                                           nsIPrincipal& aSubjectPrincipal,
                                           ErrorResult& aError) {
@@ -6418,7 +6442,7 @@ void CanvasRenderingContext2D::DrawWindow(nsGlobalWindowInner& aWindow,
     return;
   }
 
-  Maybe<nscolor> backgroundColor = ParseColor(aBgColor);
+  Maybe<nscolor> backgroundColor = ParseColor(aCx, aBgColor);
   if (!backgroundColor) {
     aError.Throw(NS_ERROR_FAILURE);
     return;

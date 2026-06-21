@@ -833,6 +833,9 @@ struct CCGraph {
   void Init() {
     MOZ_ASSERT(IsEmpty(), "Failed to call CCGraph::Clear");
 
+    // Reserve a minimum size for the first collection. After that, Clear()
+    // retains the backing storage so this is a no-op until the table shrinks
+    // below kInitialMapLength (which shouldn't happen in practice).
     // This can fail if we're running low on memory, but we can still grow the
     // hashtable normally at the cost of performance. The process might still
     // be in an unrecoverably bad state.
@@ -845,7 +848,7 @@ struct CCGraph {
     mEdges.Clear();
     mWeakMaps.Clear();
     mRootCount = 0;
-    mPtrInfoMap.clearAndCompact();
+    mPtrInfoMap.clear();
     mOutOfMemory = false;
   }
 

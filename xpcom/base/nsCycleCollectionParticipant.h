@@ -1193,6 +1193,7 @@ inline void ImplCycleCollectionUnlink(std::tuple<Elements...>& aField) {
   std::apply([](auto&&... aArgs) { (ImplCycleCollectionUnlink(aArgs), ...); },
              aField);
 }
+
 template <typename... Elements>
 inline void ImplCycleCollectionTraverse(
     nsCycleCollectionTraversalCallback& aCallback,
@@ -1203,6 +1204,12 @@ inline void ImplCycleCollectionTraverse(
         (ImplCycleCollectionTraverse(aCallback, aArgs, aName, aFlags), ...);
       },
       aField);
+}
+
+template <typename... Elements, typename Callback>
+inline void ImplCycleCollectionContainer(std::tuple<Elements...>& aField,
+                                         Callback&& aCallback) {
+  std::apply([aCallback](auto&&... aArgs) { (aCallback(aArgs), ...); }, aField);
 }
 
 #endif  // nsCycleCollectionParticipant_h_

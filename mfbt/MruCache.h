@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "nsCycleCollectionParticipant.h"
+
 #include "mozilla/Attributes.h"
 #include "mozilla/Assertions.h"
 
@@ -145,6 +147,14 @@ class MruCache {
     auto entry = RawEntry(aKey);
     bool match = detail::IsNotEmpty(*entry) && Cache::Match(aKey, *entry);
     return Entry(entry, match);
+  }
+
+  template <typename Callback>
+  friend void ImplCycleCollectionContainer(MruCache& aField,
+                                           Callback&& aCallback) {
+    for (auto& v : aField.mCache) {
+      aCallback(v);
+    }
   }
 
  private:

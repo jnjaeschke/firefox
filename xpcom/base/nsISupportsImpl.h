@@ -978,7 +978,8 @@ void ProxyDeleteMainVoid(const char* aName, void* aPtr,
     MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");                     \
     NS_ASSERT_OWNINGTHREAD(_class);                                          \
     nsISupports* base = NS_CYCLE_COLLECTION_CLASSNAME(_class)::Upcast(this); \
-    nsrefcnt count = mRefCnt.incr(base);                                     \
+    nsrefcnt count = mRefCnt.incr(                                           \
+        base, NS_CYCLE_COLLECTION_CLASSNAME(_class)::GetParticipant());      \
     NS_LOG_ADDREF(this, count, #_class, sizeof(*this));                      \
     return count;                                                            \
   }
@@ -988,7 +989,8 @@ void ProxyDeleteMainVoid(const char* aName, void* aPtr,
     MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");                         \
     NS_ASSERT_OWNINGTHREAD(_class);                                          \
     nsISupports* base = NS_CYCLE_COLLECTION_CLASSNAME(_class)::Upcast(this); \
-    nsrefcnt count = mRefCnt.decr(base);                                     \
+    nsrefcnt count = mRefCnt.decr(                                           \
+        base, NS_CYCLE_COLLECTION_CLASSNAME(_class)::GetParticipant());      \
     if (count == 0) {                                                        \
       NS_CycleCollectableHasRefCntZero();                                    \
     }                                                                        \
@@ -1008,12 +1010,14 @@ void ProxyDeleteMainVoid(const char* aName, void* aPtr,
     NS_ASSERT_OWNINGTHREAD(_class);                                          \
     bool shouldDelete = false;                                               \
     nsISupports* base = NS_CYCLE_COLLECTION_CLASSNAME(_class)::Upcast(this); \
-    nsrefcnt count = mRefCnt.decr(base, &shouldDelete);                      \
+    nsCycleCollectionParticipant* cp =                                       \
+        NS_CYCLE_COLLECTION_CLASSNAME(_class)::GetParticipant();             \
+    nsrefcnt count = mRefCnt.decr(base, cp, &shouldDelete);                  \
     NS_LOG_RELEASE(this, count, #_class);                                    \
     if (count == 0) {                                                        \
-      mRefCnt.incr(base);                                                    \
+      mRefCnt.incr(base, cp);                                                \
       _last;                                                                 \
-      mRefCnt.decr(base);                                                    \
+      mRefCnt.decr(base, cp);                                                \
       NS_CycleCollectableHasRefCntZero();                                    \
       if (shouldDelete) {                                                    \
         mRefCnt.stabilizeForDeletion();                                      \
@@ -1033,12 +1037,14 @@ void ProxyDeleteMainVoid(const char* aName, void* aPtr,
     NS_ASSERT_OWNINGTHREAD(_class);                                          \
     bool shouldDelete = false;                                               \
     nsISupports* base = NS_CYCLE_COLLECTION_CLASSNAME(_class)::Upcast(this); \
-    nsrefcnt count = mRefCnt.decr(base, &shouldDelete);                      \
+    nsCycleCollectionParticipant* cp =                                       \
+        NS_CYCLE_COLLECTION_CLASSNAME(_class)::GetParticipant();             \
+    nsrefcnt count = mRefCnt.decr(base, cp, &shouldDelete);                  \
     NS_LOG_RELEASE(this, count, #_class);                                    \
     if (count == 0) {                                                        \
-      mRefCnt.incr(base);                                                    \
+      mRefCnt.incr(base, cp);                                                \
       _last;                                                                 \
-      mRefCnt.decr(base);                                                    \
+      mRefCnt.decr(base, cp);                                                \
       NS_CycleCollectableHasRefCntZero();                                    \
       if (shouldDelete) {                                                    \
         mRefCnt.stabilizeForDeletion();                                      \
@@ -1065,12 +1071,14 @@ void ProxyDeleteMainVoid(const char* aName, void* aPtr,
     NS_ASSERT_OWNINGTHREAD(_class);                                          \
     bool shouldDelete = false;                                               \
     nsISupports* base = NS_CYCLE_COLLECTION_CLASSNAME(_class)::Upcast(this); \
-    nsrefcnt count = mRefCnt.decr(base, &shouldDelete);                      \
+    nsCycleCollectionParticipant* cp =                                       \
+        NS_CYCLE_COLLECTION_CLASSNAME(_class)::GetParticipant();             \
+    nsrefcnt count = mRefCnt.decr(base, cp, &shouldDelete);                  \
     NS_LOG_RELEASE(this, count, #_class);                                    \
     if (count == 0) {                                                        \
-      mRefCnt.incr(base);                                                    \
+      mRefCnt.incr(base, cp);                                                \
       _last;                                                                 \
-      mRefCnt.decr(base);                                                    \
+      mRefCnt.decr(base, cp);                                                \
       if (_maybeInterrupt) {                                                 \
         MOZ_ASSERT(mRefCnt.get() > 0);                                       \
         return mRefCnt.get();                                                \
